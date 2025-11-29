@@ -29,6 +29,11 @@ styles.add(ParagraphStyle(name='SmallBlack', fontName=base_font, fontSize=7, lea
 def create_cell_content(label, value, is_label=True, font_style='MyFieldValueBlack'):
     style = styles['MyFieldLabelGreen'] if is_label else styles[font_style]
     content = value.replace("\n", "<br/>") if not is_label else label
+    # Handle empty content for padding cells
+    if not label and not value and is_label:
+        return ""
+    if not content and is_label:
+        return Paragraph("", style)
     return Paragraph(content, style)
 
 
@@ -94,16 +99,13 @@ for label, key in fields_map.items():
     else:
         height = 40
     
-    # Skip the second part of Exchange Rate in input, as it's often combined in display
     if key == "Exchange Rate (Cont.)":
         continue
     
-    # Use text_input for small numerical/short fields
     if key in ["Revenue Tons", "Rate", "Per Prepaid", "Collect", "Document No.", "IMO Vessel No.", "B/L No.", "Number of Original B(s)/L"]:
          data[key] = st.text_input(label, value="", key=key)
          continue
          
-    # Use text_area for multi-line address/description fields
     data[key] = cols[col_index % 3].text_area(label, value="", height=height, key=key)
     col_index += 1
 
@@ -145,157 +147,156 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
     elements.append(header_table)
     elements.append(Spacer(1, 6))
 
-    # --- Main B/L Data Table - Building Data ---
+    # --- Main B/L Data Table - Building Data (All rows must have 6 elements) ---
     table_data = []
 
-    # Row 1-2: Shipper (50%) / Consignee (50%) / Document No. (16.6%)
+    # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), Document No. (Col 5)
     table_data.append([
-        create_cell_content("(2) Shipper / Exporter", ""),
-        create_cell_content("(3) Consignee(complete name and address)", ""),
+        create_cell_content("(2) Shipper / Exporter", ""), "", "", 
+        create_cell_content("(3) Consignee(complete name and address)", ""), "", 
         create_cell_content("(5) Document No.", "")
     ])
     table_data.append([
-        create_cell_content("", data["Shipper / Exporter"], is_label=False),
-        create_cell_content("", data["Consignee"], is_label=False),
+        create_cell_content("", data["Shipper / Exporter"], is_label=False), "", "",
+        create_cell_content("", data["Consignee"], is_label=False), "",
         create_cell_content("", data["Document No."], is_label=False)
     ])
 
-    # Row 3-4: Notify Party (50%) / Export References (50%)
+    # Row 2-7, 10-11, 16-25 (Standard 50%/50% split - Col 0-2 and Col 3-5)
+    
+    # Row 2, 3: Notify Party / Export References
     table_data.append([
-        create_cell_content("(4) Notify Party (complete name and address)", ""),
-        create_cell_content("(6) Export References", "")
+        create_cell_content("(4) Notify Party (complete name and address)", ""), "", "",
+        create_cell_content("(6) Export References", ""), "", ""
     ])
     table_data.append([
-        create_cell_content("", data["Notify Party"], is_label=False),
-        create_cell_content("", data["Export References"], is_label=False)
+        create_cell_content("", data["Notify Party"], is_label=False), "", "",
+        create_cell_content("", data["Export References"], is_label=False), "", ""
     ])
     
-    # Row 5-6: Forwarding Agent / Origin
+    # Row 4, 5: Forwarding Agent / Origin
     table_data.append([
-        create_cell_content("(7) Forwarding Agent-References", ""),
-        create_cell_content("(8) Point and Country of Origin (for the Merchant's reference only)", "")
+        create_cell_content("(7) Forwarding Agent-References", ""), "", "",
+        create_cell_content("(8) Point and Country of Origin (for the Merchant's reference only)", ""), "", ""
     ])
     table_data.append([
-        create_cell_content("", data["Forwarding Agent-References"], is_label=False),
-        create_cell_content("", data["Point & Country of Origin"], is_label=False)
-    ])
-
-    # Row 7-8: Also Notify / Instructions
-    table_data.append([
-        create_cell_content("(9) Also Notify Party (complete name and address)", ""),
-        create_cell_content("(10) Onward Inland Routing/Export Instructions (which are contracted separately by Merchants entirely for their own account and risk)", "")
-    ])
-    table_data.append([
-        create_cell_content("", data["Also Notify Party"], is_label=False),
-        create_cell_content("", data["Export Instructions"], is_label=False)
+        create_cell_content("", data["Forwarding Agent-References"], is_label=False), "", "",
+        create_cell_content("", data["Point & Country of Origin"], is_label=False), "", ""
     ])
 
-    # Row 9-10: Transport Details - 4 items in 6 columns (0, 1, 2, 3)
-    # Col 4 and 5 are implicitly empty. Spans below correct the visual layout.
+    # Row 6, 7: Also Notify / Instructions
     table_data.append([
-        create_cell_content("(13) Place of Receipt/Date", ""),
-        create_cell_content("(14) Ocean Vessel/Voy. No.", ""),
-        create_cell_content("(15) Port of Loading", ""),
+        create_cell_content("(9) Also Notify Party (complete name and address)", ""), "", "",
+        create_cell_content("(10) Onward Inland Routing/Export Instructions (which are contracted separately by Merchants entirely for their own account and risk)", ""), "", ""
+    ])
+    table_data.append([
+        create_cell_content("", data["Also Notify Party"], is_label=False), "", "",
+        create_cell_content("", data["Export Instructions"], is_label=False), "", ""
+    ])
+
+    # Row 8, 9: Transport Details - (Col 0-1), (Col 2-3), (Col 4), (Col 5)
+    table_data.append([
+        create_cell_content("(13) Place of Receipt/Date", ""), "", 
+        create_cell_content("(14) Ocean Vessel/Voy. No.", ""), "", 
+        create_cell_content("(15) Port of Loading", ""), 
         create_cell_content("(16) Port of Discharge", "")
     ])
     table_data.append([
-        create_cell_content("", data["Place of Receipt / Date"], is_label=False),
-        create_cell_content("", data["Ocean Vessel / Voyage No."], is_label=False),
-        create_cell_content("", data["Port of Loading"], is_label=False),
+        create_cell_content("", data["Place of Receipt / Date"], is_label=False), "", 
+        create_cell_content("", data["Ocean Vessel / Voyage No."], is_label=False), "", 
+        create_cell_content("", data["Port of Loading"], is_label=False), 
         create_cell_content("", data["Port of Discharge"], is_label=False)
     ])
     
-    # Row 11-12: Place of Delivery / IMO Vessel No.
+    # Row 10, 11: Place of Delivery / IMO Vessel No.
     table_data.append([
-        create_cell_content("(17) Place of Delivery", ""),
-        create_cell_content("(12) Imo Vessele No.", "")
+        create_cell_content("(17) Place of Delivery", ""), "", "",
+        create_cell_content("(12) Imo Vessele No.", ""), "", ""
     ])
     table_data.append([
-        create_cell_content("", data["Place of Delivery"], is_label=False),
-        create_cell_content("", data["IMO Vessel No."], is_label=False)
-    ])
-
-    # Row 13-14: Marks & Nos. / Container No. / Packages / Description (4 items in 6 columns)
-    # Col 4 and 5 are implicitly empty. Spans below correct the visual layout.
-    table_data.append([
-        create_cell_content("Marks & Nos.", ""),
-        create_cell_content("(18) Container No. And Seal No.", ""),
-        create_cell_content("(19) Quantity And Kind of Packages", ""),
-        create_cell_content("(20) Description of Goods", "")
-    ])
-    table_data.append([
-        create_cell_content("", data["Marks & Nos."], is_label=False),
-        create_cell_content("", data["Container No. / Seal No."], is_label=False),
-        create_cell_content("", data["Quantity & Kind of Packages"], is_label=False),
-        create_cell_content("", data["Description of Goods"], is_label=False)
+        create_cell_content("", data["Place of Delivery"], is_label=False), "", "",
+        create_cell_content("", data["IMO Vessel No."], is_label=False), "", ""
     ])
 
-    # Row 15-16: Financials / Measurement (5 items in 6 columns)
-    # Col 5 is implicitly empty. Spans below correct the visual layout.
+    # Row 12, 13: Marks/Container/Packages/Description - (Col 0), (Col 1), (Col 2), (Col 3-5)
+    table_data.append([
+        create_cell_content("Marks & Nos.", ""), 
+        create_cell_content("(18) Container No. And Seal No.", ""), 
+        create_cell_content("(19) Quantity And Kind of Packages", ""), 
+        create_cell_content("(20) Description of Goods", ""), "", ""
+    ])
+    table_data.append([
+        create_cell_content("", data["Marks & Nos."], is_label=False), 
+        create_cell_content("", data["Container No. / Seal No."], is_label=False), 
+        create_cell_content("", data["Quantity & Kind of Packages"], is_label=False), 
+        create_cell_content("", data["Description of Goods"], is_label=False), "", ""
+    ])
+
+    # Row 14, 15: Financials/Measurement - (Col 0), (Col 1), (Col 2), (Col 3), (Col 4-5)
     table_data.append([
         create_cell_content("Revenue Tons", ""),
         create_cell_content("Rate", ""),
         create_cell_content("Per Prepaid", ""),
         create_cell_content("Collect", ""),
-        create_cell_content("(21) Measurement (M³) Gross Weight (KGS)", "")
+        create_cell_content("(21) Measurement (M³) Gross Weight (KGS)", ""), ""
     ])
     table_data.append([
         create_cell_content("", data.get("Revenue Tons", ""), is_label=False),
         create_cell_content("", data.get("Rate", ""), is_label=False),
         create_cell_content("", data.get("Per Prepaid", ""), is_label=False),
         create_cell_content("", data.get("Collect", ""), is_label=False),
-        create_cell_content("", data["Measurement / Gross Weight"], is_label=False)
+        create_cell_content("", data["Measurement / Gross Weight"], is_label=False), ""
     ])
     
-    # Row 17-18: Total Packages / Freight & Charges
+    # Row 16, 17: Total Packages / Freight & Charges (50%/50%)
     table_data.append([
-        create_cell_content("(22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", ""),
-        create_cell_content("(24) FREIGHT & CHARGES", "")
+        create_cell_content("(22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", ""), "", "",
+        create_cell_content("(24) FREIGHT & CHARGES", ""), "", ""
     ])
     table_data.append([
-        create_cell_content("", data["Total Containers / Packages"], is_label=False),
-        create_cell_content("", data["Freight & Charges"], is_label=False)
-    ])
-
-
-    # Row 19-20: B/L No. / Service Type
-    table_data.append([
-        create_cell_content("(25) B/L NO.", ""),
-        create_cell_content("(26) Service Type/Mode", "")
-    ])
-    table_data.append([
-        create_cell_content("", data["B/L No."], is_label=False),
-        create_cell_content("", data["Service Type / Mode"], is_label=False)
+        create_cell_content("", data["Total Containers / Packages"], is_label=False), "", "",
+        create_cell_content("", data["Freight & Charges"], is_label=False), "", ""
     ])
 
-    # Row 21-22: Originals / Issue Date
+
+    # Row 18, 19: B/L No. / Service Type (50%/50%)
     table_data.append([
-        create_cell_content("(27) Number of Original B(s)/L", ""),
-        create_cell_content("(28) Place of B(s)/L Issue/Date", "")
+        create_cell_content("(25) B/L NO.", ""), "", "",
+        create_cell_content("(26) Service Type/Mode", ""), "", ""
     ])
     table_data.append([
-        create_cell_content("", data["Number of Original B(s)/L"], is_label=False),
-        create_cell_content("", data["Place of B(s)/L Issue / Date"], is_label=False)
+        create_cell_content("", data["B/L No."], is_label=False), "", "",
+        create_cell_content("", data["Service Type / Mode"], is_label=False), "", ""
     ])
 
-    # Row 23-24: Prepaid at / Collect at
+    # Row 20, 21: Originals / Issue Date (50%/50%)
     table_data.append([
-        create_cell_content("(29) Prepaid at", ""),
-        create_cell_content("(30) Collect at", "")
+        create_cell_content("(27) Number of Original B(s)/L", ""), "", "",
+        create_cell_content("(28) Place of B(s)/L Issue/Date", ""), "", ""
     ])
     table_data.append([
-        create_cell_content("", data["Prepaid at"], is_label=False),
-        create_cell_content("", data["Collect at"], is_label=False)
+        create_cell_content("", data["Number of Original B(s)/L"], is_label=False), "", "",
+        create_cell_content("", data["Place of B(s)/L Issue / Date"], is_label=False), "", ""
+    ])
+
+    # Row 22, 23: Prepaid at / Collect at (50%/50%)
+    table_data.append([
+        create_cell_content("(29) Prepaid at", ""), "", "",
+        create_cell_content("(30) Collect at", ""), "", ""
+    ])
+    table_data.append([
+        create_cell_content("", data["Prepaid at"], is_label=False), "", "",
+        create_cell_content("", data["Collect at"], is_label=False), "", ""
     ])
     
-    # Row 25-26: Exchange Rate / Laden on Board
+    # Row 24, 25: Exchange Rate / Laden on Board (50%/50%)
     table_data.append([
-        create_cell_content("(31) Exchange Rate / (32) Exchange Rate (Cont.)", ""),
-        create_cell_content("(33) Laden on Board", "")
+        create_cell_content("(31) Exchange Rate / (32) Exchange Rate (Cont.)", ""), "", "",
+        create_cell_content("(33) Laden on Board", ""), "", ""
     ])
     table_data.append([
-        create_cell_content("", data["Exchange Rate"], is_label=False),
-        create_cell_content("", data["Laden on Board Date"], is_label=False)
+        create_cell_content("", data["Exchange Rate"], is_label=False), "", "",
+        create_cell_content("", data["Laden on Board Date"], is_label=False), "", ""
     ])
     
     # --- Table Styling and Column Spans ---
@@ -313,16 +314,15 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
     span_styles = []
     
     # --- 2.1 Fixed SPANS (Rows 0, 1) ---
-    # Shipper/Consignee/DocNo: (0-2), (3-4), (5-5)
+    # Shipper/Consignee/DocNo: Col 0-2 (Shipper), Col 3-4 (Consignee), Col 5 (DocNo)
     span_styles.extend([
         ('SPAN', (0, 0), (2, 0)), ('SPAN', (3, 0), (4, 0)),
         ('SPAN', (0, 1), (2, 1)), ('SPAN', (3, 1), (4, 1)),
     ])
     
-    # --- 2.2 Looping SPANS (Simple 50%/50% Split) ---
-    # Rows: 2, 4, 6, 10, 16, 18, 20, 22, 24
+    # --- 2.2 Looping SPANS (Simple 50%/50% Split - Col 0-2 and Col 3-5) ---
+    # Rows: 2, 4, 6, 10, 16, 18, 20, 22, 24 (Labels and Values)
     for i in [2, 4, 6, 10, 16, 18, 20, 22, 24]:
-        # Field 1 (Col 0-2), Field 2 (Col 3-5)
         span_styles.extend([
             ('SPAN', (0, i), (2, i)), ('SPAN', (3, i), (5, i)),
             ('SPAN', (0, i+1), (2, i+1)), ('SPAN', (3, i+1), (5, i+1)),
@@ -330,7 +330,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
 
     # --- 2.3 Complex/Individual SPANS ---
     
-    # Row 8/9: Transport Details (4 cells in 6 columns: 2/6, 2/6, 1/6, 1/6)
+    # Row 8, 9: Transport Details - (Col 0-1), (Col 2-3), (Col 4), (Col 5)
     span_styles.extend([
         ('SPAN', (0, 8), (1, 8)), # Place of Receipt label (Col 0, 1)
         ('SPAN', (2, 8), (3, 8)), # Ocean Vessel label (Col 2, 3)
@@ -338,13 +338,13 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         ('SPAN', (2, 9), (3, 9)), # Ocean Vessel value (Col 2, 3)
     ])
     
-    # Row 12/13: Marks/Container/Packages/Description (4 cells in 6 columns: 1/6, 1/6, 1/6, 3/6)
+    # Row 12, 13: Goods Details - Marks/Container/Packages (1 col each), Description (Col 3-5)
     span_styles.extend([
         ('SPAN', (3, 12), (5, 12)), # Description Label (Col 3, 4, 5)
         ('SPAN', (3, 13), (5, 13)), # Description Value (Col 3, 4, 5)
     ])
     
-    # Row 14/15: Financials/Measurement (5 cells in 6 columns: 1/6, 1/6, 1/6, 1/6, 2/6)
+    # Row 14, 15: Financials/Measurement - (Col 0-3 are 1 col each), Measurement (Col 4-5)
     span_styles.extend([
         ('SPAN', (4, 14), (5, 14)), # Measurement Label (Col 4, 5)
         ('SPAN', (4, 15), (5, 15)), # Measurement Value (Col 4, 5)
@@ -367,7 +367,6 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
 
     # --- Footer (No QR Code) ---
 
-    # Footer/Signature Table (2 rows, 2 columns)
     footer_table = Table([
         [
             Paragraph("SHIPPER'S LOAD & COUNT<br/>OCEAN FREIGHT PREPAID<br/>RECEIPT IS ACKNOWLEDGED BY THE SHIPPER", styles['SmallBlack']),

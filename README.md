@@ -1,21 +1,18 @@
-# MSAL Shipping - Bill of Lading Web App (English)
-Web App to generate Bill of Lading PDFs with QR Code for shipment tracking.
+# 🚢 أداة إنشاء سند الشحن (Bill of Lading Generator)
 
-## Local Run:
-1. Install Python 3.10 or higher.
-2. Install required libraries:
-```
+هذا التطبيق هو واجهة ويب (Web App) بسيطة تم بناؤها باستخدام **Streamlit** و **ReportLab** لتوليد وثائق سندات الشحن (Bill of Lading - B/L) بصيغة PDF بناءً على مدخلات المستخدم.
+
+---
+
+## 🚀 كيفية التشغيل
+
+### المتطلبات الأساسية
+
+تحتاج إلى تثبيت Python 3.8+ وحزم المكتبات المطلوبة.
+
+### 1. تثبيت المكتبات
+
+استخدم ملف `requirements.txt` لتثبيت التبعيات:
+
+```bash
 pip install -r requirements.txt
-```
-3. Run the app:
-```
-streamlit run msal_bol_webapp_en.py
-```
-4. Open the link in browser (usually http://localhost:8501).
-
-## Deployment on Streamlit Cloud:
-1. Push repository to GitHub.
-2. Sign in to Streamlit Cloud.
-3. Click New App → From GitHub and select this repository.
-4. Streamlit Cloud will install libraries and run the app.
-5. Share the link with MSAL Shipping staff.

@@ -18,7 +18,7 @@ LOGO_PATH = "msal_logo.png"
 # 1. دالة إنشاء محتوى PDF
 def create_pdf(data):
     """
-    تنشئ محتوى سند الشحن كملف PDF، مع التركيز الدقيق على تصميم الصورة.
+    تنشئ محتوى سند الشحن كملف PDF، مع التركيز الدقيق على تقسيم الحقول في الصورة.
     """
     buffer = io.BytesIO()
     
@@ -37,23 +37,21 @@ def create_pdf(data):
         'MainTitle',
         parent=styles['h1'],
         fontSize=18,
-        alignment=1, # محاذاة للوسط
+        alignment=1, 
         spaceAfter=5,
-        textColor=colors.black # عنوان المستند بالأسود حسب الصورة
+        textColor=colors.black 
     )
     
-    # نمط النص الفرعي (يستخدم للبيانات) - لونه أسود افتراضيًا، حجم الخط 8
     cell_style = styles['Normal']
     cell_style.fontSize = 8
-    cell_style.leading = 10 # تقليل تباعد الأسطر ليتناسب مع الصورة
+    cell_style.leading = 10 
     
-    # نمط النص الرئيسي للحقول (الأرقام والعناوين) - أخضر داكن وخط عريض
     field_label_style = ParagraphStyle(
         'FieldLabel',
         parent=cell_style,
         fontName='Helvetica-Bold',
         textColor=DARK_GREEN,
-        alignment=0 # محاذاة لليسار
+        alignment=0 
     )
 
     elements = []
@@ -78,29 +76,26 @@ def create_pdf(data):
     )
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (0, 0), (0, 0), 'LEFT'), # الشعار لليسار
-        ('ALIGN', (1, 0), (1, 0), 'CENTER'), # العنوان للوسط
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'), 
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
         ('LEFTPADDING', (1, 0), (1, 0), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0), # إزالة الحشو السفلي
-        ('TOPPADDING', (0,0), (-1,-1), 0), # إزالة الحشو العلوي
-        ('ROWHEIGHTS', (0,0), (0,0), 0.7*inch) # ارتفاع صف الرأس
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0), 
+        ('TOPPADDING', (0,0), (-1,-1), 0), 
+        ('ROWHEIGHTS', (0,0), (0,0), 0.7*inch) 
     ]))
     
     elements.append(header_table)
     elements.append(Spacer(1, 0.1 * inch))
     
-    # دالة مساعدة لتنسيق البيانات في الخلايا
-    # تقوم بفصل الرقم والعنوان عن البيانات وتلوينهم بشكل منفصل
+    # دالة مساعدة لتنسيق الخلايا ذات الرقم والعنوان الأخضر (Primary/Secondary text)
     def format_numbered_cell(number_text, label_text, data_value, height=0.7 * inch):
-        # العنوان الأساسي (أخضر)
         label_paragraph = Paragraph(f'<font color="{DARK_GREEN_HEX}"><b>{number_text}</b> {label_text}</font>', field_label_style)
-        # البيانات (أسود)
         data_paragraph = Paragraph(str(data_value), cell_style)
         
-        # إنشاء جدول داخلي لتحديد مكان النص الرئيسي والفرعي
-        inner_table = Table([[label_paragraph], [data_paragraph]], colWidths=[None], rowHeights=[0.25*inch, None])
+        # نستخدم جدولاً داخليًا للمحاذاة العمودية الدقيقة
+        inner_table = Table([[label_paragraph], [data_paragraph]], colWidths=[None], rowHeights=[0.2*inch, None])
         inner_table.setStyle(TableStyle([
-            ('LEFTPADDING', (0,0), (-1,-1), 2), # حشو بسيط
+            ('LEFTPADDING', (0,0), (-1,-1), 2), 
             ('RIGHTPADDING', (0,0), (-1,-1), 2),
             ('TOPPADDING', (0,0), (-1,-1), 2),
             ('BOTTOMPADDING', (0,0), (-1,-1), 2),
@@ -108,14 +103,14 @@ def create_pdf(data):
         ]))
         return inner_table
 
-    # دالة خاصة لتنسيق رؤوس الجداول الكبيرة التي تظهر كعنوان فقط (مثل "Particulars furnished by the Merchant")
+    # دالة لتنسيق رؤوس الجداول (نص أخضر في المنتصف)
     def format_main_header_cell(text):
         p = Paragraph(f'<font color="{DARK_GREEN_HEX}"><b>{text}</b></font>', ParagraphStyle(
             'TableHeader',
             parent=field_label_style,
-            alignment=1, # محاذاة للوسط
+            alignment=1, 
             fontSize=8,
-            leading=10 # تقليل تباعد الأسطر
+            leading=10 
         ))
         return p
 
@@ -135,12 +130,13 @@ def create_pdf(data):
             format_numbered_cell("8)", "Point and Country of Origin (for the Merchant's reference only):", data.get('origin', 'N/A'), height=0.8 * inch),
         ],
         [
-             # الصف الذي يحتوي على (12) و (9) فقط
+             # رؤوس الصفوف الداخلية (12) و (9)
              format_main_header_cell("(12) Imo Vessel No."), 
              format_main_header_cell("(9) Also Notify Party (complete name and address)")
         ],
         [
-            format_numbered_cell("13)", "Place of Receipt/Date:", data.get('imo_place', 'N/A')), #دمج (12) مع (13) حسب الصورة 
+            # نستخدم (13) هنا كما هي في الصورة، ونعتبر (12) عنوان للصف أعلاه
+            format_numbered_cell("13)", "Place of Receipt/Date:", data.get('imo_place', 'N/A')), 
             format_numbered_cell("9)", "Also Notify Party:", data.get('also_notify_party', 'N/A')),
         ],
         [
@@ -149,7 +145,7 @@ def create_pdf(data):
         ],
         [
             format_numbered_cell("16)", "Port of Discharge / (17) Place of Delivery", data.get('discharge_delivery', 'N/A')),
-            Paragraph("", cell_style) # خلية فارغة
+            Paragraph("", cell_style) 
         ],
     ]
     
@@ -157,10 +153,10 @@ def create_pdf(data):
     t_upper = Table(info_data_upper, upper_col_widths, repeatRows=0)
     
     t_upper.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN), # حدود خضراء داكنة
-        ('ROWHEIGHTS', (0, 0), (2, 2), 0.7 * inch), # ارتفاعات الصفوف الأولى
-        ('ROWHEIGHTS', (3, 3), (3, 3), 0.25 * inch), # ارتفاع الصف لرؤوس (12) و (9)
-        ('ROWHEIGHTS', (4, 4), (-1, -1), 0.7 * inch), # ارتفاعات الصفوف التالية
+        ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN), 
+        ('ROWHEIGHTS', (0, 0), (2, 2), 0.7 * inch), 
+        ('ROWHEIGHTS', (3, 3), (3, 3), 0.25 * inch), # ارتفاع صغير لرؤوس (12) و (9)
+        ('ROWHEIGHTS', (4, 4), (-1, -1), 0.7 * inch), 
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
@@ -172,36 +168,48 @@ def create_pdf(data):
     elements.append(Spacer(1, 0.1 * inch))
 
     # --- جدول البضائع (الجزء الأوسط) ---
+    # يجب أن تكون 4 أعمدة بالضبط مع SPAN على الصف الأول
     
-    goods_table_data = [
+    goods_col_widths = [2.0 * inch, 1.5 * inch, 3.5 * inch, 1.0 * inch] 
+    
+    goods_header = [
         [
             format_main_header_cell("(18) Container No. And Seal No. / Marks & Nos."),
             format_main_header_cell("(19) Quantity and Kind of Packages"),
-            format_main_header_cell("Particulars furnished by the Merchant"), # دمج لاحقا
-            format_main_header_cell("(21) Measurement (M³) / Gross Weight (KGS)")
+            format_main_header_cell("Particulars furnished by the Merchant"), # سيتم دمجها مع الخلية التالية
+            Paragraph("", cell_style) # Placeholder for spanning
         ],
         [
-            Paragraph(str(data.get('container_no', 'N/A')), cell_style), 
-            Paragraph(str(data.get('quantity', 'N/A')), cell_style), 
-            Paragraph(str(data.get('description', 'N/A')), cell_style), 
-            Paragraph(str(data.get('weight', 'N/A')), cell_style)
+            # الصف الثاني: تقسيم واضح للأعمدة الأربعة الفرعية 
+            Paragraph("CONTAINER NO./SEAL NO.", cell_style), 
+            Paragraph("Marks & Nos.", cell_style),          
+            Paragraph("(20) Description of Goods", cell_style), 
+            Paragraph("(21) Measurement (M³)<br/>Gross Weight (KGS)", cell_style) 
         ]
     ]
     
-    goods_col_widths = [2.0 * inch, 1.5 * inch, 3.5 * inch, 1.0 * inch] 
-    t_goods = Table(goods_table_data, goods_col_widths, repeatRows=1) # repeatRows=1 يعني تكرار الصف الأول كرأس
+    # صف البيانات
+    goods_data_row = [
+        Paragraph(str(data.get('container_no', 'N/A')), cell_style), 
+        Paragraph(str(data.get('quantity', 'N/A')), cell_style), 
+        Paragraph(str(data.get('description', 'N/A')), cell_style), 
+        Paragraph(str(data.get('weight', 'N/A')), cell_style)
+    ]
+
+    t_goods = Table(goods_header + [goods_data_row], goods_col_widths, repeatRows=2) 
 
     t_goods.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
-        ('SPAN', (2, 0), (3, 0)), # دمج "Particulars furnished by the Merchant"
+        ('SPAN', (2, 0), (3, 0)), # دمج "Particulars furnished by the Merchant" عبر العمودين
         
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ROWHEIGHTS', (0, 0), (0, 0), 0.4 * inch), # ارتفاع صف الرأس
-        ('ROWHEIGHTS', (1, 1), (-1, -1), 2.5 * inch), # ارتفاع صف البيانات
-        ('LEFTPADDING', (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ('ROWHEIGHTS', (0, 0), (0, 0), 0.3 * inch), # ارتفاع صف الرأس 1
+        ('ROWHEIGHTS', (1, 1), (1, 1), 0.5 * inch), # ارتفاع صف الرأس 2
+        ('ROWHEIGHTS', (2, 2), (-1, -1), 2.5 * inch), # ارتفاع صف البيانات
+        ('LEFTPADDING', (0,0), (-1,-1), 2),
+        ('RIGHTPADDING', (0,0), (-1,-1), 2),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
     ]))
 
     elements.append(t_goods)
@@ -212,7 +220,6 @@ def create_pdf(data):
     footer_data = [
         [
             format_numbered_cell("22)", "TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", data.get('total_packages', 'N/A')),
-            # هذه رؤوس الأعمدة الفرعية
             format_main_header_cell("Revenue Tons"),
             format_main_header_cell("Rate"),
             format_main_header_cell("Per Prepaid"),
@@ -220,7 +227,6 @@ def create_pdf(data):
         ],
         [
             format_numbered_cell("24)", "FREIGHT & CHARGES", data.get('freight_charges', 'N/A')),
-            # هذه بيانات بالأسود
             Paragraph(str(data.get('rev_tons', 'N/A')), cell_style),
             Paragraph(str(data.get('rate', 'N/A')), cell_style),
             Paragraph(str(data.get('per_prepaid', 'N/A')), cell_style),
@@ -234,8 +240,8 @@ def create_pdf(data):
     t_footer.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ROWHEIGHTS', (0, 0), (0, 0), 0.4 * inch), # ارتفاع صف الرأس
-        ('ROWHEIGHTS', (1, 1), (-1, -1), 0.7 * inch), # ارتفاع صف البيانات
+        ('ROWHEIGHTS', (0, 0), (0, 0), 0.4 * inch), 
+        ('ROWHEIGHTS', (1, 1), (-1, -1), 0.7 * inch), 
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
         ('TOPPADDING', (0,0), (-1,-1), 0),
@@ -274,7 +280,7 @@ def create_pdf(data):
     t_final.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ROWHEIGHTS', (0, 0), (-1, -1), 0.7 * inch), # ارتفاعات الصفوف
+        ('ROWHEIGHTS', (0, 0), (-1, -1), 0.7 * inch),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
         ('TOPPADDING', (0,0), (-1,-1), 0),
@@ -290,6 +296,7 @@ def create_pdf(data):
 
 # 2. دالة واجهة Streamlit (main)
 def main():
+    # ... (واجهة Streamlit تبقى كما هي، حيث أن التغييرات كلها في توليد الـ PDF) ...
     st.set_page_config(layout="wide", page_title="أداة سند الشحن")
     
     st.title("🚢 أداة إنشاء سند الشحن (مطابقة التصميم)")
@@ -301,7 +308,6 @@ def main():
 
     st.markdown("---")
     
-    # --- جمع البيانات الافتراضية ---
     data = {}
     
     with st.expander("بيانات الشاحن والمستلم والموانئ"):

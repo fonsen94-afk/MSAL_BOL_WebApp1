@@ -1,20 +1,8 @@
-import streamlit as st
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-import io
-import os 
-
-# 🚨 تأكد من وجود هذا الملف في نفس المجلد
-LOGO_PATH = "msal_logo.png" 
-
 # 1. دالة إنشاء محتوى PDF
 def create_pdf(data):
     """
     تنشئ محتوى سند الشحن كملف PDF في الذاكرة باستخدام ReportLab.
-    (مصممة لتقليد التخطيط البصري لسند الشحن)
+    (تم تطبيق الحل النهائي لخطأ TypeError في جدول الرأس)
     """
     buffer = io.BytesIO()
     
@@ -46,25 +34,35 @@ def create_pdf(data):
     
     elements = []
     
-    # --- 1. رأس الصفحة (الشعار والعنوان) ---
+    # --- إضافة الشعار والعنوان ---
     
-    logo_cell = ""
+    # القيمة الافتراضية للخلية الأولى - يجب أن تكون فارغة في البداية
+    logo_cell = None 
     
-    # إعداد خلية الشعار
+    # 1. إعداد خلية الشعار
     if os.path.exists(LOGO_PATH):
         try:
+            # ReportLab Image - محاولة إنشاء الكائن
             logo_cell = Image(str(LOGO_PATH), width=1.0 * inch, height=0.5 * inch)
         except Exception:
-            logo_cell = Paragraph("<b>[LOGO ERROR]</b>", cell_style)
+             # في حالة حدوث خطأ في القراءة، نستخدم نص بسيط (String) كإجراء احتياطي
+            logo_cell = "[LOGO ERROR]"
     else:
-        logo_cell = Paragraph("<b>MCL SHIPPING</b>", styles['Normal'])
+        # إذا لم يتم العثور على الملف، نستخدم نص بسيط (String) كإجراء احتياطي
+        logo_cell = "MCL SHIPPING"
     
-    # إعداد خلية العنوان
+    # 🚨 إذا كانت الخلية نصاً بسيطاً، نقوم بتحويلها إلى Paragraph قبل الجدول
+    # (لكن هنا سنعتمد على أن ReportLab تقبل النص في هذه الحالة)
+    if isinstance(logo_cell, str):
+        logo_cell = Paragraph(f"<b>{logo_cell}</b>", styles['Normal'])
+
+    # 2. إعداد خلية العنوان
     title_cell = Paragraph("BILL OF LADING", main_title_style)
 
+    # دمج الشعار والعنوان في جدول برأس الصفحة (السطر 65 سابقاً)
     header_table = Table(
         [[logo_cell, title_cell]], 
-        col_widths=[1.5 * inch, 6.5 * inch] # عرض 8 بوصة
+        col_widths=[1.5 * inch, 6.5 * inch]
     )
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -75,26 +73,21 @@ def create_pdf(data):
     elements.append(header_table)
     elements.append(Spacer(1, 0.2 * inch))
     
-    # --- 2. جداول المعلومات (تقليد الصناديق) ---
+    # --- البيانات الأساسية في جدول واحد ---
     
-    # تم تصميم هذا الجدول ليحتوي على جميع الصناديق في تخطيط شبكي
     table_data = [
-        # الصف 1: الشاحن (2) ورقم المستند (5)
         [
             Paragraph("<b>(2) Shipper / Exporter:</b><br/>" + str(data.get('shipper', 'N/A')), cell_style),
             Paragraph("<b>(5) Document No.:</b><br/>" + str(data.get('doc_no', 'N/A')), cell_style),
         ],
-        # الصف 2: المستلم (3) ومرجع التصدير (6)
         [
             Paragraph("<b>(3) Consignee:</b><br/>" + str(data.get('consignee', 'N/A')), cell_style),
             Paragraph("<b>(6) Export References:</b><br/>" + str(data.get('export_ref', 'N/A')), cell_style),
         ],
-        # الصف 3: طرف الإخطار (4) ووكيل الشحن (7)
         [
             Paragraph("<b>(4) Notify Party:</b><br/>" + str(data.get('notify_party', 'N/A')), cell_style),
             Paragraph("<b>(7) Forwarding Agent / References:</b><br/>" + str(data.get('fwd_agent', 'N/A')), cell_style),
         ],
-        # الصف 4: موانئ الشحن والتفريغ (14) و (15)
         [
             Paragraph("<b>(14) Port of Loading:</b><br/>" + str(data.get('port_loading', 'N/A')), cell_style),
             Paragraph("<b>(15) Port of Discharge:</b><br/>" + str(data.get('port_discharge', 'N/A')), cell_style),
@@ -107,15 +100,15 @@ def create_pdf(data):
     t_info.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ROWHEIGHTS', (0, 0), (0, 0), 0.7 * inch),  # الشاحن
-        ('ROWHEIGHTS', (1, 1), (1, 1), 0.7 * inch),  # المستلم
-        ('ROWHEIGHTS', (2, 2), (2, 2), 1.0 * inch),  # طرف الإخطار (أكبر)
-        ('ROWHEIGHTS', (3, 3), (3, 3), 0.7 * inch),  # الموانئ
+        ('ROWHEIGHTS', (0, 0), (0, 0), 0.7 * inch),
+        ('ROWHEIGHTS', (1, 1), (1, 1), 0.7 * inch),
+        ('ROWHEIGHTS', (2, 2), (2, 2), 1.0 * inch),
+        ('ROWHEIGHTS', (3, 3), (3, 3), 0.7 * inch),
     ]))
 
     elements.append(t_info)
     
-    # --- 3. قسم البضائع (الجدول الرئيسي) ---
+    # --- قسم البضائع (الجدول الرئيسي) ---
     
     elements.append(Spacer(1, 0.2 * inch))
     elements.append(Paragraph("<b>Particulars furnished by the Merchant</b>", styles['h3']))
@@ -142,7 +135,7 @@ def create_pdf(data):
     
     table_goods_full = goods_header + goods_data
     
-    # عرض الأعمدة لجدول البضائع (مساحة أكبر للوصف)
+    # عرض الأعمدة لجدول البضائع
     goods_col_widths = [1.5 * inch, 1.5 * inch, 3.5 * inch, 1.4 * inch]
     t_goods = Table(table_goods_full, col_widths=goods_col_widths, repeatRows=1)
     
@@ -151,7 +144,7 @@ def create_pdf(data):
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('ROWHEIGHTS', (1, 1), (-1, -1), 2.0 * inch) # ارتفاع صف البيانات
+        ('ROWHEIGHTS', (1, 1), (-1, -1), 2.0 * inch)
     ]))
 
     elements.append(t_goods)
@@ -162,85 +155,3 @@ def create_pdf(data):
     # إعادة تعيين مؤشر المخزن المؤقت إلى البداية
     buffer.seek(0)
     return buffer
-
-# 2. دالة واجهة Streamlit (main)
-def main():
-    st.set_page_config(layout="wide", page_title="أداة سند الشحن")
-    
-    st.title("🚢 أداة إنشاء سند الشحن (Bill of Lading)")
-    
-    # عرض الشعار في واجهة Streamlit إذا كان موجوداً
-    if os.path.exists(LOGO_PATH):
-        st.image(LOGO_PATH, width=100)
-    
-    st.markdown("---")
-
-    # --- نموذج الإدخال (Streamlit UI) ---
-    
-    with st.container(border=True):
-        st.subheader("📝 بيانات الأطراف والمراجع")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            shipper = st.text_area("**(2) الشاحن / المصدر (Shipper / Exporter)**", "M.L. General Trading LLC, Dubai", height=70)
-            consignee = st.text_area("**(3) المستلم (Consignee)**", "Ahmad Logistics, Jeddah", height=70)
-            notify_party = st.text_area("**(4) طرف الإخطار (Notify Party)**", "Same as Consignee", height=70)
-
-
-        with col2:
-            doc_no = st.text_input("**(5) رقم المستند (Document No.)**", "MCL-BL-123456")
-            export_ref = st.text_input("**(6) مرجع التصدير (Export References)**", "EXP/123/2025")
-            fwd_agent = st.text_input("**(7) وكيل الشحن (Forwarding Agent)**", "Fast Global Movers")
-            
-            st.markdown("---")
-            port_loading = st.text_input("**(14) ميناء الشحن (Port of Loading)**", "Jebel Ali, UAE")
-            port_discharge = st.text_input("**(15) ميناء التفريغ (Port of Discharge)**", "King Abdullah Port, KSA")
-
-
-    st.markdown("---")
-
-    st.subheader("📦 تفاصيل البضائع")
-    col3, col4, col5 = st.columns(3)
-    
-    with col3:
-        container_no = st.text_input("**(18) رقم الحاوية / الختم**", "MSKU1234567 / 998877")
-    with col4:
-        quantity = st.text_input("**(19) الكمية ونوع الطرود**", "20 Pallets")
-    with col5:
-        weight = st.text_input("**(21) الوزن الإجمالي (KGS)**", "15,500")
-        
-    description = st.text_area("**(20) وصف البضائع (Description of Goods)**", "Assorted Consumer Electronics and Spare Parts", height=100)
-
-    # تجميع البيانات في قاموس
-    form_data = {
-        'shipper': shipper,
-        'consignee': consignee,
-        'notify_party': notify_party,
-        'fwd_agent': fwd_agent,
-        'doc_no': doc_no,
-        'export_ref': export_ref,
-        'port_loading': port_loading,
-        'port_discharge': port_discharge,
-        'container_no': container_no,
-        'quantity': quantity,
-        'weight': weight,
-        'description': description
-    }
-    
-    st.markdown("---")
-
-    # --- زر التحميل ---
-    
-    pdf_buffer = create_pdf(form_data)
-    
-    st.download_button(
-        label="⬇️ تحميل سند الشحن كملف PDF",
-        data=pdf_buffer,
-        file_name="Bill_of_Lading.pdf",
-        mime="application/pdf",
-        type="primary"
-    )
-
-if __name__ == '__main__':
-    main()

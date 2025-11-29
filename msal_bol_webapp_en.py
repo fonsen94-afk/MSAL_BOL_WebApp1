@@ -1,347 +1,297 @@
 import streamlit as st
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
+from PIL import Image # For Logo handling
 import io
-import os 
-from PIL import Image as PilImage 
 
-# ====================================================================
-#              تعريفات الألوان والثوابت
-# ====================================================================
+# --- 1. REPORTLAB PDF GENERATION LOGIC (NO QR CODE) ---
 
-DARK_GREEN = colors.Color(0/255, 128/255, 0/255) 
-DARK_GREEN_HEX = '#008000' 
-LOGO_PATH = "msal_logo.png" 
+# Setup general styles
+styles = getSampleStyleSheet()
+styles['Normal'].fontName = 'Helvetica'
+styles['Normal'].fontSize = 8
+styles['Normal'].leading = 10 # Adjust line spacing for better fit
 
-# ====================================================================
-#              دوال مساعدة للتنسيق داخل PDF (ReportLab)
-# ====================================================================
-
-# دالة لتنسيق الخلايا ذات الرقم والعنوان الأخضر والبيانات السوداء
-def format_numbered_cell(number_text, label_text, data_value):
-    """تنسيق حقل رقمي وعنواني (أخضر) وبيانات (أسود) داخل خلية واحدة."""
-    # نمط النص الرئيسي للحقول (الأرقام والعناوين) - أخضر داكن وخط عريض
-    field_label_style = ParagraphStyle(
-        'FieldLabel',
-        parent=getSampleStyleSheet()['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=8,
-        textColor=DARK_GREEN,
-        alignment=0 
-    )
-    # نمط البيانات (أسود)
-    cell_style = getSampleStyleSheet()['Normal']
-    cell_style.fontSize = 8
-    cell_style.leading = 10 
-
-    label_paragraph = Paragraph(f'<font color="{DARK_GREEN_HEX}"><b>{number_text}</b> {label_text}</font>', field_label_style)
-    data_paragraph = Paragraph(str(data_value), cell_style)
+# Function to draw the header and logo
+def header_layout(canvas, doc, data):
+    canvas.saveState()
     
-    # نستخدم جدولاً داخليًا للتحكم الدقيق في موضع النص
-    inner_table = Table([[label_paragraph], [data_paragraph]], colWidths=[None], rowHeights=[0.2*inch, None])
-    inner_table.setStyle(TableStyle([
-        ('LEFTPADDING', (0,0), (-1,-1), 2), 
-        ('RIGHTPADDING', (0,0), (-1,-1), 2),
-        ('TOPPADDING', (0,0), (-1,-1), 2),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-        ('VALIGN', (0,0), (-1,-1), 'TOP')
-    ]))
-    return inner_table
+    # 1. Logo and Title (Top Left)
+    try:
+        logo_path = 'msal_logo.png'
+        img = Image.open(logo_path)
+        img_width = 1.0 * inch
+        img_height = img.height * (img_width / img.width)
+        # Draw the logo
+        canvas.drawInlineImage(logo_path, 0.5 * inch, letter[1] - 0.9 * inch, width=img_width, height=img_height)
+        
+        canvas.setFont('Helvetica-Bold', 10)
+        canvas.drawString(0.5 * inch, letter[1] - 0.5 * inch, "MCL SHIPPING")
 
-# دالة لتنسيق رؤوس الجداول (نص أخضر في المنتصف)
-def format_main_header_cell(text):
-    """تنسيق عنوان رئيسي لجدول (أخضر، عريض، توسيط)."""
-    field_label_style = ParagraphStyle(
-        'FieldLabel',
-        parent=getSampleStyleSheet()['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=8,
-        textColor=DARK_GREEN,
-        alignment=1 # توسيط
-    )
-    p = Paragraph(f'<font color="{DARK_GREEN_HEX}"><b>{text}</b></font>', field_label_style)
-    return p
+    except FileNotFoundError:
+        canvas.setFont('Helvetica-Bold', 10)
+        canvas.drawString(0.5 * inch, letter[1] - 0.5 * inch, "MCL SHIPPING (Logo Placeholder)")
+    
+    # 2. BILL OF LADING Title (Top Right Center)
+    canvas.setFont('Helvetica-Bold', 18)
+    canvas.drawString(4.5 * inch, letter[1] - 0.75 * inch, "BILL OF LADING")
+    
+    # 3. Horizontal Separator Line
+    canvas.line(0.5 * inch, letter[1] - 1.0 * inch, letter[0] - 0.5 * inch, letter[1] - 1.0 * inch)
+    
+    # 4. Document No. (5)
+    doc_no = data.get('(5) Document No.', 'N/A')
+    canvas.setFont('Helvetica-Bold', 8)
+    canvas.drawString(4.5 * inch, letter[1] - 1.2 * inch, "(5) Document No.")
+    canvas.setFont('Helvetica', 10)
+    canvas.drawString(5.5 * inch, letter[1] - 1.2 * inch, doc_no) 
 
-# ====================================================================
-#              1. دالة إنشاء محتوى PDF
-# ====================================================================
+    canvas.restoreState()
 
-def create_pdf(data):
-    """
-    تنشئ محتوى سند الشحن (B/L) مع الالتزام بالتصميم وتضمين الصفوف الديناميكية للبضائع.
-    """
+
+# Main PDF generation function
+def generate_bl_pdf(data):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=0.5 * inch,
-        rightMargin=0.5 * inch,
-        topMargin=0.5 * inch,
-        bottomMargin=0.5 * inch
-    )
-    
-    elements = []
-    
-    # --- رأس المستند (الشعار والعنوان) ---
-    cell_style = getSampleStyleSheet()['Normal']
-    cell_style.fontSize = 8
-    
-    logo_cell = None 
-    if os.path.exists(LOGO_PATH):
-        try:
-            logo_cell = Image(LOGO_PATH, width=1.0 * inch, height=0.5 * inch)
-            logo_cell.hAlign = 'LEFT' 
-        except Exception:
-            logo_cell = Paragraph(f"<font color=\"{DARK_GREEN_HEX}\">MCL SHIPPING</font>", format_main_header_cell("").style)
-    else:
-        logo_cell = Paragraph(f"<font color=\"{DARK_GREEN_HEX}\">MCL SHIPPING</font>", format_main_header_cell("").style)
+    # Adjusted bottom margin back to standard since no QR code is added
+    doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                            leftMargin=0.5*inch, 
+                            rightMargin=0.5*inch, 
+                            topMargin=1.5*inch, 
+                            bottomMargin=0.5*inch) 
 
-    title_cell = Paragraph("BILL OF LADING", ParagraphStyle(
-        'MainTitle', fontSize=18, alignment=1, textColor=colors.black 
-    ))
+    Story = []
+    
+    # Style for borders and text alignment
+    border_style = TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('PADDING', (0, 0), (-1, -1), 3),
+        ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke), # For header row in goods section
+    ])
+    
+    # --- UPPER SECTION (Parties) ---
+    data_upper = [
+        [
+            Paragraph("<b>(2) Shipper / Exporter</b><br/>" + data.get('(2) Shipper', ''), styles['Normal']), 
+            Paragraph("<b>(6) Export References</b><br/>" + data.get('(6) Export References', ''), styles['Normal']),
+        ],
+        [
+            Paragraph("<b>(3) Consignee (complete name and address)</b><br/>" + data.get('(3) Consignee', ''), styles['Normal']), 
+            Paragraph("<b>(7) Forwarding Agent-References</b><br/>" + data.get('(7) Forwarding Agent', ''), styles['Normal']),
+        ],
+        [
+            Paragraph("<b>(4) Notify Party (complete name and address)</b><br/>" + data.get('(4) Notify Party', ''), styles['Normal']), 
+            Paragraph("<b>(8) Point and Country of Origin</b><br/>" + data.get('(8) Point and Country', ''), styles['Normal']),
+        ],
+        ['', Paragraph("<b>(9) Also Notify Party (complete name and address)</b><br/>" + data.get('(9) Also Notify Party', ''), styles['Normal'])],
+    ]
+    
+    table_upper = Table(data_upper, colWidths=[3.75 * inch, 3.75 * inch])
+    table_upper.setStyle(border_style)
+    Story.append(table_upper)
 
-    header_table = Table([[logo_cell, title_cell]], [1.5 * inch, 6.5 * inch])
-    header_table.setStyle(TableStyle([
+    # --- MIDDLE SECTION (Transport) ---
+    data_middle = [
+        [
+            Paragraph("<b>(12) Imo Vesselle No.</b><br/>" + data.get('(12) Imo Vesselle No.', ''), styles['Normal']), 
+            Paragraph("<b>(13) Place of Receipt/Date</b><br/>" + data.get('(13) Place of Receipt/Date', ''), styles['Normal']),
+            Paragraph("<b>(10) Onward Inland Routing/Export Instructions</b><br/>" + data.get('(10) Onward Inland Routing', ''), styles['Normal'])
+        ],
+        [
+            Paragraph("<b>(14) Ocean Vessel/Voy. No.</b><br/>" + data.get('(14) Ocean Vessel/Voy. No.', ''), styles['Normal']), 
+            Paragraph("<b>(15) Port of Loading</b><br/>" + data.get('(15) Port of Loading', ''), styles['Normal']),
+            Paragraph("<b>(16) Port of Discharge</b><br/>" + data.get('(16) Port of Discharge', ''), styles['Normal'])
+        ],
+        [
+            Paragraph("<b>(16) Port of Discharge</b><br/>" + data.get('(16) Port of Discharge (Repeat)', ''), styles['Normal']),
+            Paragraph("<b>(17) Place of Delivery</b><br/>" + data.get('(17) Place of Delivery', ''), styles['Normal']),
+            Paragraph("<b>(11) Ocean Freight Rate (for Merchant's reference)</b>", styles['Normal']),
+        ]
+    ]
+    
+    table_middle = Table(data_middle, colWidths=[2.5 * inch, 2.5 * inch, 2.5 * inch])
+    table_middle.setStyle(border_style)
+    Story.append(table_middle)
+
+    # --- GOODS SECTION (Wide Table) ---
+    Story.append(Paragraph("<br/><b>Particulars furnished by the Merchant</b>", styles['Normal']))
+
+    data_goods = [
+        # Header Row
+        [
+            Paragraph("<b>(18) Container No. And Seal No. Marks & Nos.</b><br/>CONTAINER NO./SEAL NO.", styles['Normal']),
+            Paragraph("<b>(19) Quantity And Kind of Packages</b>", styles['Normal']),
+            Paragraph("<b>(20) Description of Goods</b>", styles['Normal']),
+            Paragraph("<b>(21) Measurement (M³) Gross Weight (KGS)</b>", styles['Normal']),
+        ],
+        # Data Row
+        [
+            data.get('Container No.', ''),
+            data.get('Packages Qty.', ''),
+            data.get('Description of Goods', ''),
+            data.get('Weight/Measure', ''),
+        ],
+        # Placeholder rows for form appearance
+        *[['','','',''] for _ in range(8)],
+    ]
+    
+    table_goods = Table(data_goods, colWidths=[1.5 * inch, 1.125 * inch, 3.375 * inch, 1.5 * inch])
+    table_goods.setStyle(border_style)
+    Story.append(table_goods)
+    
+    # --- LOWER SECTION (Charges & Issue) ---
+    
+    # Columns for Freight & Charges section (24)
+    charges_header = Table([
+        ['(24) FREIGHT & CHARGES', 'Revenue Tons', 'Rate', 'Per Prepaid', 'Collect']
+    ], colWidths=[1.875 * inch, 1.25 * inch, 1.25 * inch, 1.25 * inch, 1.875 * inch])
+    charges_header.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (0, 0), (0, 0), 'LEFT'), 
-        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0), 
-        ('TOPPADDING', (0,0), (-1,-1), 0), 
-        ('ROWHEIGHTS', (0,0), (0,0), 0.7*inch) 
+        ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke),
     ]))
-    elements.append(header_table)
-    elements.append(Spacer(1, 0.1 * inch))
     
-    # --- جداول المعلومات الرئيسية (الصف العلوي) ---
-    
-    info_data_upper = [
-        [format_numbered_cell("2)", "Shipper / Exporter:", data.get('shipper', 'N/A')), format_numbered_cell("5)", "Document No.:", data.get('doc_no', 'N/A'))],
-        [format_numbered_cell("3)", "Consignee (complete name and address):", data.get('consignee', 'N/A')), format_numbered_cell("7)", "Forwarding Agent / References:", data.get('fwd_agent', 'N/A'))],
-        [format_numbered_cell("4)", "Notify Party (complete name and address):", data.get('notify_party', 'N/A')), format_numbered_cell("8)", "Point and Country of Origin (for the Merchant's reference only):", data.get('origin', 'N/A'))],
-        [format_main_header_cell("(12) Imo Vessel No."), format_main_header_cell("(9) Also Notify Party (complete name and address)")],
-        [format_numbered_cell("13)", "Place of Receipt/Date:", data.get('imo_place', 'N/A')), format_numbered_cell("9)", "Also Notify Party:", data.get('also_notify_party', 'N/A'))],
-        [format_numbered_cell("14)", "Ocean Vessel / Voy. No. / (15) Port of Loading", data.get('vessel_voyage_loading', 'N/A')), format_numbered_cell("10)", "Onward Inland Routing/Export Instructions:", data.get('inland_export_inst', 'N/A'))],
-        [format_numbered_cell("16)", "Port of Discharge / (17) Place of Delivery", data.get('discharge_delivery', 'N/A')), Paragraph("", cell_style) ]
+    data_lower = [
+        # Row 1: (22) Total & (24) Charges Header (merged with placeholder columns for alignment)
+        [
+            Paragraph("<b>(22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)</b><br/>" + data.get('(22) Total in Words', ''), styles['Normal']),
+            Paragraph("<b>(24) FREIGHT & CHARGES</b><br/>", styles['Normal']), 
+            '', 
+            '', 
+            '',
+        ],
+        # Row 2: B/L No., Number of Originals, Prepaid, Collect
+        [
+            Paragraph("<b>(25) B/L NO.</b><br/>" + data.get('(25) B/L No.', ''), styles['Normal']), 
+            Paragraph("<b>(27) Number of Original B(s)/L</b><br/>" + str(data.get('(27) Number of Original', '')), styles['Normal']), 
+            Paragraph("<b>(29) Prepaid at</b><br/>" + data.get('(29) Prepaid at', ''), styles['Normal']), 
+            Paragraph("<b>(30) Collect at</b><br/>" + data.get('(30) Collect at', ''), styles['Normal']),
+            Paragraph("<b>Signature/Stamp:</b><br/>" + data.get('Digital Signature', ''), styles['Normal']), # Addition Field
+        ],
+        # Row 3: Service Type, Laden on Board, Place/Date, Exchange Rates
+        [
+            Paragraph("<b>(26) Service Type/Mode</b><br/>" + data.get('(26) Service Type', ''), styles['Normal']), 
+            Paragraph("<b>(33) Laden on Board</b><br/>" + data.get('(33) Laden on Board', ''), styles['Normal']), 
+            Paragraph("<b>(28) Place of B(s)/L Issue/Date</b><br/>" + data.get('(28) Place of Issue', ''), styles['Normal']), 
+            Paragraph("<b>(31) Exchange Rate</b><br/>" + data.get('(31) Exchange Rate', ''), styles['Normal']),
+            Paragraph("<b>(32) Exchange Rate</b><br/>" + data.get('(32) Exchange Rate (Repeat)', ''), styles['Normal']),
+        ]
     ]
     
-    upper_col_widths = [4.0 * inch, 4.0 * inch]
-    t_upper = Table(info_data_upper, upper_col_widths, repeatRows=0)
+    # Column widths adjusted slightly for better flow without the QR Code slot
+    table_lower = Table(data_lower, colWidths=[1.875 * inch, 1.5 * inch, 1.25 * inch, 1.25 * inch, 1.625 * inch])
+    table_lower.setStyle(border_style)
+    Story.append(table_lower)
     
-    t_upper.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN), 
-        ('ROWHEIGHTS', (0, 0), (2, 2), 0.7 * inch), 
-        ('ROWHEIGHTS', (3, 3), (3, 3), 0.25 * inch), 
-        ('ROWHEIGHTS', (4, 4), (-1, -1), 0.7 * inch), 
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0,0), (-1,-1), 0), ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 0), ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-    ]))
-    elements.append(t_upper)
-    elements.append(Spacer(1, 0.1 * inch))
-
-    # --- جدول البضائع (صفوف ديناميكية) ---
+    # Build the document
+    doc.build(Story, onFirstPage=lambda canvas, doc: header_layout(canvas, doc, data), onLaterPages=lambda canvas, doc: header_layout(canvas, doc, data))
     
-    goods_col_widths = [2.0 * inch, 1.5 * inch, 3.5 * inch, 1.0 * inch] 
-    
-    goods_header = [
-        [format_main_header_cell("(18) Container No. And Seal No. / Marks & Nos."), format_main_header_cell("(19) Quantity and Kind of Packages"), format_main_header_cell("Particulars furnished by the Merchant"), Paragraph("", cell_style)],
-        [Paragraph("CONTAINER NO./SEAL NO.", cell_style), Paragraph("Marks & Nos.", cell_style), Paragraph("(20) Description of Goods", cell_style), Paragraph("(21) Measurement (M³)<br/>Gross Weight (KGS)", cell_style) ]
-    ]
-    
-    goods_data_rows = []
-    num_rows = len(data.get('goods_list', []))
-    single_row_height = (2.5 * inch) / max(1, num_rows)
-    if single_row_height < 0.5 * inch: single_row_height = 0.5 * inch 
-
-    if data.get('goods_list'):
-        for item in data['goods_list']:
-            goods_data_rows.append([
-                Paragraph(item['container_no'], cell_style), 
-                Paragraph(item['quantity'], cell_style), 
-                Paragraph(item['description'], cell_style), 
-                Paragraph(item['weight_measurement'], cell_style) 
-            ])
-    
-    t_goods = Table(goods_header + goods_data_rows, goods_col_widths, repeatRows=2) 
-
-    style_commands = [
-        ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
-        ('SPAN', (2, 0), (3, 0)), 
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ROWHEIGHTS', (0, 0), (0, 0), 0.3 * inch), 
-        ('ROWHEIGHTS', (1, 1), (1, 1), 0.5 * inch), 
-        ('LEFTPADDING', (0,0), (-1,-1), 2), ('RIGHTPADDING', (0,0), (-1,-1), 2),
-        ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-    ]
-
-    for row_index in range(num_rows):
-        style_commands.append(('ROWHEIGHTS', (row_index + 2, row_index + 2), (row_index + 2, row_index + 2), single_row_height))
-
-    t_goods.setStyle(TableStyle(style_commands))
-    elements.append(t_goods)
-    elements.append(Spacer(1, 0.1 * inch))
-    
-    # --- جدول الشحن والرسوم (الجزء السفلي) ---
-    
-    footer_data = [
-        [format_numbered_cell("22)", "TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", data.get('total_packages', 'N/A')), format_main_header_cell("Revenue Tons"), format_main_header_cell("Rate"), format_main_header_cell("Per Prepaid"), format_main_header_cell("Collect")],
-        [format_numbered_cell("24)", "FREIGHT & CHARGES", data.get('freight_charges', 'N/A')), Paragraph(str(data.get('rev_tons', 'N/A')), cell_style), Paragraph(str(data.get('rate', 'N/A')), cell_style), Paragraph(str(data.get('per_prepaid', 'N/A')), cell_style), Paragraph(str(data.get('collect', 'N/A')), cell_style)]
-    ]
-
-    footer_col_widths = [3.0 * inch, 1.25 * inch, 1.25 * inch, 1.25 * inch, 1.25 * inch]
-    t_footer = Table(footer_data, footer_col_widths, repeatRows=0)
-    
-    t_footer.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ROWHEIGHTS', (0, 0), (0, 0), 0.4 * inch), 
-        ('ROWHEIGHTS', (1, 1), (-1, -1), 0.7 * inch), 
-        ('LEFTPADDING', (0,0), (-1,-1), 0), ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 0), ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-    ]))
-    elements.append(t_footer)
-    elements.append(Spacer(1, 0.1 * inch))
-    
-    # --- الجدول النهائي (التوقيع والتواريخ) ---
-    
-    final_data = [
-        [format_numbered_cell("25)", "B/L NO.", data.get('final_bl_no', 'N/A')), format_numbered_cell("27)", "Number of Original B(s)/L", data.get('original_bl_no', 'N/A')), format_numbered_cell("29)", "Prepaid at", data.get('prepaid_at', 'N/A')), format_numbered_cell("30)", "Collect at", data.get('collect_at', 'N/A'))],
-        [format_numbered_cell("26)", "Service Type/Mode", data.get('service_type', 'N/A')), format_numbered_cell("28)", "Place of B(s)/L Issue/Date", data.get('issue_place_date', 'N/A')), format_numbered_cell("31)", "Exchange Rate", data.get('exchange_rate', 'N/A')), format_numbered_cell("32)", "Exchange Rate", data.get('exchange_rate_2', 'N/A'))],
-        [format_numbered_cell("33)", "Laden on Board", data.get('laden_on_board', 'N/A')), Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style)]
-    ]
-
-    final_col_widths = [2.0 * inch, 2.0 * inch, 2.0 * inch, 2.0 * inch]
-    t_final = Table(final_data, final_col_widths, repeatRows=0)
-
-    t_final.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ROWHEIGHTS', (0, 0), (-1, -1), 0.7 * inch),
-        ('LEFTPADDING', (0,0), (-1,-1), 0), ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 0), ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-    ]))
-    elements.append(t_final)
-
-    doc.build(elements)
     buffer.seek(0)
     return buffer
 
-# ====================================================================
-#              2. دالة واجهة Streamlit (main)
-# ====================================================================
+# --- 2. STREAMLIT WEB APPLICATION ---
 
-def main():
-    st.set_page_config(layout="wide", page_title="أداة سند الشحن")
+st.set_page_config(layout="wide", page_title="MCL Bill of Lading Generator")
+
+st.title("🚢 Electronic Bill of Lading (B/L) Generator")
+st.caption("Enter the required data to generate a PDF document matching the B/L template.")
+
+data_input = {}
+
+with st.form("bl_form"):
     
-    st.title("🚢 أداة إنشاء سند الشحن (النسخة النهائية)")
+    # --- PART 1: Parties and References ---
+    st.header("1. Parties and References")
     
-    if os.path.exists(LOGO_PATH):
-        st.image(LOGO_PATH, width=100) 
-    else:
-        st.markdown(f"**<font color='{DARK_GREEN_HEX}'>MCL SHIPPING</font>**", unsafe_allow_html=True)
-
-    st.markdown("---")
+    col1, col2 = st.columns(2)
     
-    data = {}
+    with col1:
+        data_input['(2) Shipper'] = st.text_area("2. Shipper / Exporter (Full Name and Address)", height=70, value="XYZ Trading Co. Ltd.\n123 Logistics Blvd, Dubai, UAE")
+        data_input['(3) Consignee'] = st.text_area("3. Consignee (Full Name and Address)", height=70, value="ABC Importers Inc.\n456 Port Road, Rotterdam, NL")
+        data_input['(4) Notify Party'] = st.text_area("4. Notify Party (Full Name and Address)", height=70, value="Same as Consignee")
+    with col2:
+        data_input['(5) Document No.'] = st.text_input("5. Document No. (B/L No.)", value="MCLDUBAIRDM24001")
+        data_input['(6) Export References'] = st.text_input("6. Export References")
+        data_input['(7) Forwarding Agent'] = st.text_area("7. Forwarding Agent-References", height=70)
+        data_input['(8) Point and Country'] = st.text_input("8. Point and Country of Origin")
+        data_input['(9) Also Notify Party'] = st.text_area("9. Also Notify Party", height=50)
+
+    # --- PART 2: Transport and Ports ---
+    st.header("2. Transport and Ports")
+    col3, col4, col5 = st.columns(3)
     
-    # --- بيانات الشاحن والمستلم والموانئ ---
-    with st.expander("بيانات الشاحن والمستلم والموانئ"):
-        col1, col2 = st.columns(2)
-        with col1:
-            data['shipper'] = st.text_area("2) Shipper / Exporter:", "M.L. General Trading LLC, Dubai", height=50)
-            data['consignee'] = st.text_area("3) Consignee:", "Ahmad Logistics, Jeddah", height=50)
-            data['notify_party'] = st.text_area("4) Notify Party:", "Same as Consignee", height=50)
-            data['imo_place'] = st.text_input("13) Place of Receipt/Date:", "London, 01/01/2025")
-            data['vessel_voyage_loading'] = st.text_input("14) Ocean Vessel / Voy. No. / (15) Port of Loading:", "Maersk-001 / Jebel Ali, UAE")
-            data['discharge_delivery'] = st.text_input("16) Port of Discharge / (17) Place of Delivery:", "King Abdullah Port, KSA / Riyadh")
-
-        with col2:
-            data['doc_no'] = st.text_input("5) Document No.:", "MCL-BL-123456")
-            data['fwd_agent'] = st.text_input("7) Forwarding Agent / References:", "Fast Global Movers")
-            data['origin'] = st.text_input("8) Point and Country of Origin:", "Hamburg, Germany")
-            data['also_notify_party'] = st.text_area("9) Also Notify Party:", "N/A", height=50)
-            data['inland_export_inst'] = st.text_area("10) Onward Inland Routing/Export Instructions:", "Handle with care.", height=50)
+    with col3:
+        data_input['(12) Imo Vesselle No.'] = st.text_input("12. Imo Vesselle No.")
+        data_input['(14) Ocean Vessel/Voy. No.'] = st.text_input("14. Ocean Vessel/Voy. No.", value="MSC ROME V. 245A")
+        data_input['(16) Port of Discharge (Repeat)'] = st.text_input("16. Port of Discharge (Repeat)", value="Rotterdam, NL")
+    with col4:
+        data_input['(13) Place of Receipt/Date'] = st.text_input("13. Place of Receipt/Date")
+        data_input['(15) Port of Loading'] = st.text_input("15. Port of Loading", value="Jebel Ali, UAE")
+        data_input['(17) Place of Delivery'] = st.text_input("17. Place of Delivery")
+    with col5:
+        data_input['(10) Onward Inland Routing'] = st.text_area("10. Onward Inland Routing/Export Instructions", height=50)
+        data_input['(11) Ocean Freight Rate'] = st.text_input("11. Ocean Freight Rate (for reference)")
+        data_input['(16) Port of Discharge'] = st.text_input("16. Port of Discharge", value="Rotterdam, NL")
 
 
-    # --- تفاصيل البضائع والرسوم (صفوف ديناميكية) ---
-    with st.expander("📦 تفاصيل البضائع والرسوم (صفوف ديناميكية)"):
+    # --- PART 3: Goods Description ---
+    st.header("3. Goods Description and Quantity")
+    col6, col7 = st.columns([1, 2])
+    
+    with col6:
+        data_input['Container No.'] = st.text_area("18. Container No. / Seal No. / Marks & Nos.", value="TGBU1234567 / SEAL001", height=100)
+        data_input['Packages Qty.'] = st.text_input("19. Quantity And Kind of Packages", value="10 Cartons")
+        data_input['Weight/Measure'] = st.text_input("21. Gross Weight (KGS) / Measurement (M³)", value="5,000 KGS / 10.5 M³")
+    with col7:
+        data_input['Description of Goods'] = st.text_area("20. Description of Goods", value="FROZEN SEAFOOD\nHS Code: 0306.90.00\nTemperature: -18°C", height=100)
+        data_input['(22) Total in Words'] = st.text_input("22. Total Number of Containers or Packages (IN WORDS)", value="TEN CARTONS ONLY")
+
+    # --- PART 4: Charges and Issue ---
+    st.header("4. Freight, Charges, and Issue")
+    col8, col9, col10 = st.columns(3)
+    
+    with col8:
+        data_input['(25) B/L No.'] = st.text_input("25. B/L NO. (Repeat)", value=data_input['(5) Document No.'])
+        data_input['(26) Service Type'] = st.text_input("26. Service Type/Mode", value="CY/CY")
+        data_input['(33) Laden on Board'] = st.text_input("33. Laden on Board (Date/Time)")
+    with col9:
+        data_input['(27) Number of Original'] = st.number_input("27. Number of Original B(s)/L", min_value=1, value=3)
+        data_input['(28) Place of Issue'] = st.text_input("28. Place of B(s)/L Issue/Date", value="DUBAI, 29/11/2025")
+        data_input['Digital Signature'] = st.text_input("Digital Signature / Authorized Person (Addition)", value="Khaled A. - Operations Manager")
+    with col10:
+        data_input['(29) Prepaid at'] = st.text_input("29. Prepaid at")
+        data_input['(30) Collect at'] = st.text_input("30. Collect at")
+        data_input['(31) Exchange Rate'] = st.text_input("31. Exchange Rate")
+        data_input['(32) Exchange Rate (Repeat)'] = st.text_input("32. Exchange Rate (Repeat)")
         
-        # التحكم في عدد صفوف البضائع
-        num_goods_rows = st.number_input(
-            "عدد صفوف تفاصيل البضائع المطلوبة (حاويات/بضائع)", 
-            min_value=1, 
-            value=1, 
-            step=1,
-            key='num_goods_rows'
+    submitted = st.form_submit_button("✅ Generate Bill of Lading (PDF)")
+
+
+# --- 3. PROCESSING AND OUTPUT ---
+if submitted:
+    st.write("Generating Bill of Lading PDF...")
+    
+    try:
+        # Generate PDF
+        pdf_buffer = generate_bl_pdf(data_input)
+        
+        # Download Button
+        st.download_button(
+            label="⬇️ Download Bill of Lading PDF",
+            data=pdf_buffer,
+            file_name=f"BOL_{data_input['(5) Document No.']}.pdf",
+            mime="application/pdf"
         )
         
-        data['goods_list'] = [] 
+        st.success("File created successfully! You can download it now.")
         
-        # إنشاء حقول إدخال ديناميكية لكل صف
-        for i in range(int(num_goods_rows)):
-            st.subheader(f"بيانات الصف / الحاوية رقم {i+1}")
-            
-            col_18, col_19 = st.columns([1, 1])
-            cont_marks = col_18.text_area(f"18) Cont. No. / Marks (Row {i+1})", f"MSKU1234567 / 998877 ({i+1})", height=50, key=f'cont_{i}')
-            quantity = col_19.text_area(f"19) Quantity (Row {i+1})", f"20 Pallets ({i+1})", height=50, key=f'qty_{i}')
-
-            col_20, col_21 = st.columns([3, 1])
-            description = col_20.text_area(f"20) Description of Goods (Row {i+1})", "Assorted Consumer Electronics and Spare Parts", height=70, key=f'desc_{i}')
-            weight_measurement = col_21.text_input(f"21) Weight / Meas. (Row {i+1})", f"15,500 KGS / 10 M³ ({i+1})", key=f'wgt_{i}')
-
-            goods_entry = {
-                'container_no': cont_marks,
-                'quantity': quantity,
-                'description': description,
-                'weight_measurement': weight_measurement
-            }
-            data['goods_list'].append(goods_entry)
-            st.markdown("---") 
-
-
-        data['total_packages'] = st.text_area("22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", "Twenty (20) Pallets", height=50)
-        
-        col4_f, col5_f, col6_f, col7_f, col8_f = st.columns(5)
-        data['rev_tons'] = col4_f.text_input("Revenue Tons:", "10.00")
-        data['rate'] = col5_f.text_input("Rate:", "150.00")
-        data['per_prepaid'] = col6_f.text_input("Per Prepaid:", "1500.00")
-        data['collect'] = col7_f.text_input("Collect:", "0.00")
-        data['freight_charges'] = col8_f.text_input("24) FREIGHT & CHARGES:", "Prepaid")
-
-    # --- تفاصيل التوثيق النهائي ---
-    with st.expander("✍️ تفاصيل التوثيق النهائي"):
-        col5, col6, col7 = st.columns(3)
-        with col5:
-            data['final_bl_no'] = st.text_input("25) B/L NO.", "MCL-123456")
-            data['service_type'] = st.text_input("26) Service Type/Mode", "CY/CY")
-        with col6:
-            data['original_bl_no'] = st.text_input("27) Number of Original B(s)/L", "3")
-            data['issue_place_date'] = st.text_input("28) Place of B(s)/L Issue/Date", "Dubai, 01/01/2025")
-            data['laden_on_board'] = st.text_input("33) Laden on Board", "02/01/2025")
-        with col7:
-            data['prepaid_at'] = st.text_input("29) Prepaid at", "New York")
-            data['collect_at'] = st.text_input("30) Collect at", "Riyadh")
-            data['exchange_rate'] = st.text_input("31) Exchange Rate", "1.000")
-            data['exchange_rate_2'] = st.text_input("32) Exchange Rate", "3.750")
-
-    st.markdown("---")
-
-    # توليد ملف PDF وزر التحميل
-    pdf_buffer = create_pdf(data)
-    
-    st.download_button(
-        label="⬇️ تحميل سند الشحن كملف PDF",
-        data=pdf_buffer,
-        file_name="Bill_of_Lading_Final_Template.pdf",
-        mime="application/pdf",
-        type="primary"
-    )
-
-if __name__ == '__main__':
-    try:
-        main()
     except Exception as e:
-        st.error(f"حدث خطأ غير متوقع: {e}")
+        st.error(f"An error occurred during PDF creation: {e}")
+
+st.markdown("---")
+st.markdown("Powered by Streamlit and ReportLab.")

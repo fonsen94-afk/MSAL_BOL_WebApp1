@@ -10,16 +10,14 @@ import os
 # 1. Styles and Configuration
 # ----------------------------------------------------------------------
 
-# Using standard ReportLab fonts (Helvetica)
 base_font = "Helvetica"
 styles = getSampleStyleSheet()
 
 # Define Colors
 green_color = colors.HexColor("#008000")
 black_color = colors.black
-# light_gray_color removed as requested (لا اريد خلفية خلف الكتابة)
 
-# Define styles using standard fonts
+# Define styles
 styles.add(ParagraphStyle(name='MyTitleGreen', fontName=base_font + '-Bold', fontSize=16, leading=20, alignment=1, textColor=green_color, allowOrphans=0, allowWidows=0))
 styles.add(ParagraphStyle(name='MyFieldLabelGreen', fontName=base_font + '-Bold', fontSize=8, leading=10, textColor=green_color, spaceBefore=2, spaceAfter=2, alignment=0, allowOrphans=0, allowWidows=0))
 styles.add(ParagraphStyle(name='MyFieldValueBlack', fontName=base_font, fontSize=9, leading=11, textColor=black_color, spaceBefore=2, spaceAfter=2, alignment=0, allowOrphans=0, allowWidows=0))
@@ -30,7 +28,6 @@ styles.add(ParagraphStyle(name='SmallBlack', fontName=base_font, fontSize=7, lea
 def create_cell_content(label, value, is_label=True, font_style='MyFieldValueBlack'):
     style = styles['MyFieldLabelGreen'] if is_label else styles[font_style]
     content = value.replace("\n", "<br/>") if not is_label else label
-    # Handle empty content for padding cells
     if not label and not value and is_label:
         return ""
     if not content and is_label:
@@ -39,11 +36,11 @@ def create_cell_content(label, value, is_label=True, font_style='MyFieldValueBla
 
 
 # ----------------------------------------------------------------------
-# 2. Main Document Creation Function (Contains the exact design/structure)
+# 2. Main Document Creation Function (Exact Design Match)
 # ----------------------------------------------------------------------
 
 def create_bill_of_lading_elements(data, doc):
-    """Generates the platypus elements for a single Bill of Lading copy, matching the uploaded file design."""
+    """Generates the platypus elements for a single Bill of Lading copy, matching the uploaded image design."""
     elements = []
     
     logo_path = "msal_logo.png"
@@ -56,12 +53,12 @@ def create_bill_of_lading_elements(data, doc):
     else:
         logo_img = create_cell_content("MCL", "", is_label=False, font_style='MyTitleGreen')
 
-    # Title: BILL OF LADING (Reverted to match file content)
+    # Title: BILL OF LADING [cite: 4]
     title_para = Paragraph("<b>BILL OF LADING</b>", styles['MyTitleGreen'])
 
     header_data.append([
         logo_img,
-        create_cell_content("MCL SHIPPING M", "", is_label=False, font_style='MyTitleGreen'),
+        create_cell_content("MCL SHIPPING M", "", is_label=False, font_style='MyTitleGreen'), [cite: 2]
         title_para,
         create_cell_content("(1) Shipper's Booking No. / Freight Memo No. ...", "", is_label=False, font_style='SmallBlack')
     ])
@@ -79,11 +76,11 @@ def create_bill_of_lading_elements(data, doc):
     
     table_data = []
 
-    # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), (5) Document No. (Col 5)
+    # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), (5) Document No. (Col 5) [cite: 3, 5, 7]
     table_data.append([
         create_cell_content("(2) Shipper / Exporter", ""), "", "", 
         create_cell_content("(3) Consignee(complete name and address)", ""), "", 
-        create_cell_content("(5) Document No.", "") # Reverted to Document No.
+        create_cell_content("(5) Document No.", "") 
     ])
     table_data.append([
         create_cell_content("", data["Shipper / Exporter"], is_label=False), "", "",
@@ -91,7 +88,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Document No."], is_label=False)
     ])
 
-    # Row 2, 3: Notify Party / Export References (50%/50% split - Col 0-2 and Col 3-5)
+    # Row 2, 3: Notify Party / Export References (50%/50% split - Col 0-2 and Col 3-5) [cite: 9, 6]
     table_data.append([
         create_cell_content("(4) Notify Party (complete name and address)", ""), "", "",
         create_cell_content("(6) Export References", ""), "", ""
@@ -101,7 +98,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Export References"], is_label=False), "", ""
     ])
     
-    # Row 4, 5: Forwarding Agent / Origin (50%/50% split)
+    # Row 4, 5: Forwarding Agent / Origin (50%/50% split) [cite: 8, 22]
     table_data.append([
         create_cell_content("(7) Forwarding Agent-References", ""), "", "",
         create_cell_content("(8) Point and Country of Origin (for the Merchant's reference only)", ""), "", ""
@@ -111,7 +108,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Point & Country of Origin"], is_label=False), "", ""
     ])
 
-    # Row 6, 7: Also Notify / Instructions (50%/50% split)
+    # Row 6, 7: Also Notify / Instructions (50%/50% split) [cite: 23, 24]
     table_data.append([
         create_cell_content("(9) Also Notify Party (complete name and address)", ""), "", "",
         create_cell_content("(10) Onward Inland Routing/Export Instructions (which are contracted separately by Merchants entirely for their own account and risk)", ""), "", ""
@@ -121,7 +118,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Export Instructions"], is_label=False), "", ""
     ])
 
-    # Row 8, 9: Transport Details - (Col 0-1), (Col 2-3), (Col 4), (Col 5)
+    # Row 8, 9: Transport Details - (Col 0-1), (Col 2-3), (Col 4), (Col 5) [cite: 13, 11, 14, 12]
     table_data.append([
         create_cell_content("(13) Place of Receipt/Date", ""), "", 
         create_cell_content("(14) Ocean Vessel/Voy. No.", ""), "", 
@@ -135,7 +132,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Port of Discharge"], is_label=False)
     ])
     
-    # Row 10, 11: Place of Delivery / IMO Vessel No. (50%/50% split)
+    # Row 10, 11: Place of Delivery / IMO Vessel No. (50%/50% split) [cite: 15, 10]
     table_data.append([
         create_cell_content("(17) Place of Delivery", ""), "", "",
         create_cell_content("(12) Imo Vessele No.", ""), "", ""
@@ -145,76 +142,88 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["IMO Vessel No."], is_label=False), "", ""
     ])
     
-    # --- Goods Details Section (Corrected to match file design) ---
+    # --- Goods Details Section (Match Image Layout) ---
     
-    # Row 12: Particulars furnished by the Merchant (spanning C2-C5)
+    # Row 12: Particulars furnished by the Merchant (spanning C2-C5) [cite: 25]
     table_data.append([
         "", "", 
         create_cell_content("Particulars furnished by the Merchant", ""), "", "", "" 
     ])
     
-    # Row 13: Goods Details Headers - (Col 0), (Col 1), (Col 2), (Col 3-4), (Col 5)
+    # Row 13: Goods Details Headers - (Col 0), (Col 1), (Col 2), (Col 3-4), (Col 5) [cite: 16, 20, 21, 26, 34]
     table_data.append([
-        create_cell_content("Marks & Nos.", ""), 
-        create_cell_content("(18) Container No. And Seal No.", ""), 
-        create_cell_content("(19) Quantity And Kind of Packages", ""), 
-        create_cell_content("(20) Description of Goods", ""), "", # Col 3-4 for Description
-        create_cell_content("(21) Measurement (M³) Gross Weight (KGS)", "")
+        create_cell_content("(18) Container No. And Seal No.<br/>Marks & Nos.", ""), # Combined
+        create_cell_content("(19) Quantity And<br/>Kind of Packages", ""), 
+        create_cell_content("(20) Description of Goods", ""), 
+        create_cell_content("", ""), # Spanned
+        create_cell_content("(21) Measurement (M³)<br/>Gross Weight (KGS)", "")
     ])
     
     # Row 14: Goods Details Values
     table_data.append([
-        create_cell_content("", data["Marks & Nos."], is_label=False), 
-        create_cell_content("", data["Container No. / Seal No."], is_label=False), 
+        create_cell_content("", data["Container No. / Seal No."], is_label=False), # Using Container No. field for C0/C1 combined
         create_cell_content("", data["Quantity & Kind of Packages"], is_label=False), 
-        create_cell_content("", data["Description of Goods"], is_label=False), "", # Col 3-4 for Description Value
+        create_cell_content("", data["Description of Goods"], is_label=False), 
+        create_cell_content("", "", is_label=False), # Spanned
         create_cell_content("", data["Measurement / Gross Weight"], is_label=False)
     ])
     
-    # Row 15: CONTAINER NO./SEAL NO. (as per file snippet) - Spans C0-C5
+    # Row 15: CONTAINER NO./SEAL NO. (Spans C0-C5) [cite: 17]
     table_data.append([
         create_cell_content("CONTAINER NO./SEAL NO.", ""), "", "", "", "", ""
     ])
 
-    # Row 16, 17: Financials - (Col 0-3 are 1 col each), Measurement (Col 4-5) - Retained original design
+    # --- Financials/Totals Section (Match Image Layout) ---
+    
+    # Row 16, 17: (22) TOTAL NUMBER... (C0-C2) | (24) FREIGHT & CHARGES (C3-C5) 
+    table_data.append([
+        create_cell_content("(22) TOTAL NUMBER OF<br/>CONTAINERS OR PACKAGES<br/>(IN WORDS)", ""), "", "",
+        create_cell_content("(24) FREIGHT & CHARGES", ""), "", ""
+    ])
+    table_data.append([
+        create_cell_content("", data["Total Containers / Packages"], is_label=False), "", "",
+        create_cell_content("", data["Freight & Charges"], is_label=False), "", ""
+    ])
+    
+    # Row 18, 19: Financial Detail Breakdown (Match Image Layout) [cite: 30, 31, 32, 33]
     table_data.append([
         create_cell_content("Revenue Tons", ""),
         create_cell_content("Rate", ""),
         create_cell_content("Per Prepaid", ""),
         create_cell_content("Collect", ""),
-        create_cell_content("(22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", ""), "" # Now using field 22 instead of 21
+        "", "" # Empty C4, C5
     ])
     table_data.append([
         create_cell_content("", data.get("Revenue Tons", ""), is_label=False),
         create_cell_content("", data.get("Rate", ""), is_label=False),
         create_cell_content("", data.get("Per Prepaid", ""), is_label=False),
         create_cell_content("", data.get("Collect", ""), is_label=False),
-        create_cell_content("", data["Total Containers / Packages"], is_label=False), ""
-    ])
-    
-    # Row 18, 19: Total Packages (Spans C0-C2) / Freight & Charges (Spans C3-C5)
-    # Re-indexing the fields as per file layout
-    table_data.append([
-        create_cell_content("(24) FREIGHT & CHARGES", ""), "", "",
-        create_cell_content("(25) B/L NO.", ""), "", ""
-    ])
-    table_data.append([
-        create_cell_content("", data["Freight & Charges"], is_label=False), "", "",
-        create_cell_content("", data["B/L No."], is_label=False), "", ""
+        "", "" # Empty C4, C5
     ])
 
 
-    # Row 20, 21: Service Type / Originals (50%/50% split) - Adjusting index based on file structure
+    # Row 20, 21: B/L NO. / Originals [cite: 35, 36]
     table_data.append([
-        create_cell_content("(26) Service Type/Mode", ""), "", "",
+        create_cell_content("(25) B/L NO.", ""), "", "",
         create_cell_content("(27) Number of Original B(s)/L", ""), "", ""
     ])
     table_data.append([
-        create_cell_content("", data["Service Type / Mode"], is_label=False), "", "",
+        create_cell_content("", data["B/L No."], is_label=False), "", "",
         create_cell_content("", data["Number of Original B(s)/L"], is_label=False), "", ""
     ])
+    
+    # Row 22, 23: Service Type / Place of Issue [cite: 42, 39]
+    table_data.append([
+        create_cell_content("(26) Service Type/Mode", ""), "", "",
+        create_cell_content("(28) Place of B(s)/L Issue/Date", ""), "", ""
+    ])
+    table_data.append([
+        create_cell_content("", data["Service Type / Mode"], is_label=False), "", "",
+        create_cell_content("", data["Place of B(s)/L Issue / Date"], is_label=False), "", ""
+    ])
 
-    # Row 22, 23: Prepaid at / Collect at (50%/50% split)
+
+    # Row 24, 25: Prepaid at / Collect at [cite: 37, 38]
     table_data.append([
         create_cell_content("(29) Prepaid at", ""), "", "",
         create_cell_content("(30) Collect at", ""), "", ""
@@ -224,24 +233,14 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Collect at"], is_label=False), "", ""
     ])
 
-    # Row 24, 25: Issue Date / Exchange Rate (50%/50% split) - Re-indexing
+    # Row 26, 27: Laden on Board / Exchange Rate [cite: 43, 40, 41]
     table_data.append([
-        create_cell_content("(28) Place of B(s)/L Issue/Date", ""), "", "",
+        create_cell_content("(33) Laden on Board", ""), "", "",
         create_cell_content("(31) Exchange Rate / (32) Exchange Rate (Cont.)", ""), "", ""
     ])
     table_data.append([
-        create_cell_content("", data["Place of B(s)/L Issue / Date"], is_label=False), "", "",
-        create_cell_content("", data["Exchange Rate"], is_label=False), "", ""
-    ])
-    
-    # Row 26, 27: Laden on Board (50%/50% split) - Adding the last field
-    table_data.append([
-        create_cell_content("(33) Laden on Board", ""), "", "",
-        "", "", "" # Empty right half
-    ])
-    table_data.append([
         create_cell_content("", data["Laden on Board Date"], is_label=False), "", "",
-        "", "", "" # Empty right half
+        create_cell_content("", data["Exchange Rate"], is_label=False), "", ""
     ])
     
     # --- Table Styling and Column Spans ---
@@ -249,9 +248,6 @@ def create_bill_of_lading_elements(data, doc):
     col_widths = [doc.width * 0.166] * 6
     main_table = Table(table_data, colWidths=col_widths)
     
-    # 1. Background styles are REMOVED 
-    
-    # 2. Generate SPAN styles (Total 28 rows, check indices)
     span_styles = []
     
     # --- 2.1 Fixed SPANS (Rows 0, 1) ---
@@ -261,11 +257,10 @@ def create_bill_of_lading_elements(data, doc):
     ])
     
     # --- 2.2 Looping SPANS (Simple 50%/50% Split - Col 0-2 and Col 3-5) ---
-    # Rows: 2, 4, 6, 10, 18, 20, 22, 24, 26 (Labels and Values)
-    for i in [2, 4, 6, 10, 18, 20, 22, 24, 26]:
+    # Rows: 2, 4, 6, 10, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27 (Labels and Values)
+    for i in [2, 4, 6, 10, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27]:
         span_styles.extend([
             ('SPAN', (0, i), (2, i)), ('SPAN', (3, i), (5, i)),
-            ('SPAN', (0, i+1), (2, i+1)), ('SPAN', (3, i+1), (5, i+1)),
         ])
 
     # --- 2.3 Complex/Individual SPANS ---
@@ -283,27 +278,28 @@ def create_bill_of_lading_elements(data, doc):
     span_styles.extend([
         ('SPAN', (2, 12), (5, 12)), 
     ])
-    # Row 13, 14: Goods Details - Description (Col 3-4)
+    # Row 13, 14: Goods Details - Container/Marks (C0-C1), Description (C2-C3)
     span_styles.extend([
-        ('SPAN', (3, 13), (4, 13)), 
-        ('SPAN', (3, 14), (4, 14)), 
+        ('SPAN', (0, 13), (1, 13)), 
+        ('SPAN', (2, 13), (4, 13)), # C2, C3, C4 merged for Description
+        ('SPAN', (0, 14), (1, 14)),
+        ('SPAN', (2, 14), (4, 14)), # C2, C3, C4 merged for Description Value
     ])
     # Row 15: CONTAINER NO./SEAL NO. (Spans C0-C5)
     span_styles.extend([
         ('SPAN', (0, 15), (5, 15)), 
     ])
     
-    # Row 16, 17: Financials/Total Packages - (Col 0-3 are 1 col each), Total Packages (Col 4-5)
+    # Financial Detail Breakdown (Row 18, 19): Revenue Tons, Rate, Per Prepaid, Collect (C0-C3), C4-C5 empty
     span_styles.extend([
-        ('SPAN', (4, 16), (5, 16)), 
-        ('SPAN', (4, 17), (5, 17)), 
+        ('SPAN', (4, 18), (5, 18)),
+        ('SPAN', (4, 19), (5, 19)),
     ])
     
     # 3. Combine all styles into the final list
     main_style = [
         # Keep internal GRID lines with green color
         ('GRID', (0, 0), (-1, -1), 0.5, green_color),
-        # BOX style is REMOVED 
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]
@@ -314,12 +310,12 @@ def create_bill_of_lading_elements(data, doc):
     elements.append(main_table)
     elements.append(Spacer(1, 12))
 
-    # --- Footer (Adjusted to match the file text) ---
+    # --- Footer (Adjusted to match the file text) --- [cite: 29, 28, 27]
 
     footer_table = Table([
         [
             Paragraph(
-                "SHIPPER'S LOAD & COUNT<br/>\"OCEAN FREIGHT PREPAID\"<br/>* THE BALANCE OF BILL OF LADING SEE ATTACHED LIST<br/>*TOTAL NUMBER OF ATTACHED 1 PAGE", 
+                "SHIPPER'S LOAD & COUNT<br/>\"OCEAN FREIGHT PREPAID\"<br/>* THE BALANCE OF BILL OF LADING SEE ATTACHED LIST<br/>* TOTAL NUMBER OF ATTACHED 1 PAGE", 
                 styles['SmallBlack']
             ),
             create_cell_content("For MCL Shipping M", "", font_style='MyTitleGreen')
@@ -366,7 +362,7 @@ fields_map = {
     "(15) Port of Loading": "Port of Loading",
     "(16) Port of Discharge": "Port of Discharge",
     "(17) Place of Delivery": "Place of Delivery",
-    "Marks & Nos.": "Marks & Nos.",
+    "Marks & Nos.": "Marks & Nos.", # Used in Goods section
     "(18) Container No. And Seal No.": "Container No. / Seal No.",
     "(19) Quantity And Kind of Packages": "Quantity & Kind of Packages",
     "(20) Description of Goods": "Description of Goods",
@@ -393,8 +389,8 @@ st.header("Shipment Details Input (Matching Document Layout)")
 cols = st.columns(3)
 col_index = 0
 
+# Streamlit input logic (remains the same)
 for label, key in fields_map.items():
-    # Set default text area height based on field importance
     if key in ["Description of Goods"]:
         height = 150
     elif key in ["Shipper / Exporter", "Consignee", "Notify Party"]:
@@ -435,6 +431,6 @@ if st.button("Generate BILL OF LADING PDF (1 Copy) ⬇️"):
             file_name=f"{data.get('B/L No.', 'BILL_OF_LADING').replace('/', '_')}.pdf",
             mime="application/pdf"
         )
-        st.success("تم إنشاء ملف PDF بنسخة واحدة، مطابق لتصميم الملفات المرفقة، وبدون إطار خارجي أو خلفية ملونة.")
+        st.success("تم إنشاء ملف PDF بنسخة واحدة، مطابق تمامًا لتصميم الصورة المرفقة، وبدون إطار خارجي أو خلفية ملونة.")
     except Exception as e:
         st.error(f"حدث خطأ أثناء بناء ملف PDF: {e}")

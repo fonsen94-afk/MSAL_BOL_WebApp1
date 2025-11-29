@@ -1,6 +1,5 @@
 import streamlit as st
 from reportlab.lib.pagesizes import A4
-# تأكد من استيراد Image هنا
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -8,13 +7,14 @@ from reportlab.lib.units import inch
 import io
 import os 
 
-# 🚨 مسار الشعار يجب أن يكون صحيحاً
+# 🚨 تأكد من وجود هذا الملف في نفس المجلد
 LOGO_PATH = "msal_logo.png" 
 
 # 1. دالة إنشاء محتوى PDF
 def create_pdf(data):
     """
     تنشئ محتوى سند الشحن كملف PDF في الذاكرة باستخدام ReportLab.
+    (مصممة لتقليد التخطيط البصري لسند الشحن)
     """
     buffer = io.BytesIO()
     
@@ -46,30 +46,25 @@ def create_pdf(data):
     
     elements = []
     
-    # --- إضافة الشعار والعنوان ---
+    # --- 1. رأس الصفحة (الشعار والعنوان) ---
     
-    logo_cell = "" # القيمة الافتراضية للخلية الأولى
+    logo_cell = ""
     
-    # 1. إعداد خلية الشعار
+    # إعداد خلية الشعار
     if os.path.exists(LOGO_PATH):
         try:
-            # ReportLab Image - محاولة إنشاء الكائن
-            # نستخدم str() للتأكد من أن مسار الملف سلسلة نصية
             logo_cell = Image(str(LOGO_PATH), width=1.0 * inch, height=0.5 * inch)
         except Exception:
-             # في حالة حدوث خطأ في القراءة، نضع مكانه فقرة نصية صالحة
             logo_cell = Paragraph("<b>[LOGO ERROR]</b>", cell_style)
     else:
-        # إذا لم يتم العثور على الملف، نضع فقرة نصية صالحة
         logo_cell = Paragraph("<b>MCL SHIPPING</b>", styles['Normal'])
     
-    # 2. إعداد خلية العنوان
+    # إعداد خلية العنوان
     title_cell = Paragraph("BILL OF LADING", main_title_style)
 
-    # دمج الشعار والعنوان في جدول برأس الصفحة (تم تصحيح TypeError هنا)
     header_table = Table(
         [[logo_cell, title_cell]], 
-        col_widths=[1.5 * inch, 6.5 * inch]
+        col_widths=[1.5 * inch, 6.5 * inch] # عرض 8 بوصة
     )
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -80,22 +75,26 @@ def create_pdf(data):
     elements.append(header_table)
     elements.append(Spacer(1, 0.2 * inch))
     
-    # --- البيانات الأساسية في جدول واحد ---
+    # --- 2. جداول المعلومات (تقليد الصناديق) ---
     
-    # تم استخدام str() و .get() لضمان سلاسل نصية وتجنب TypeError
+    # تم تصميم هذا الجدول ليحتوي على جميع الصناديق في تخطيط شبكي
     table_data = [
+        # الصف 1: الشاحن (2) ورقم المستند (5)
         [
             Paragraph("<b>(2) Shipper / Exporter:</b><br/>" + str(data.get('shipper', 'N/A')), cell_style),
             Paragraph("<b>(5) Document No.:</b><br/>" + str(data.get('doc_no', 'N/A')), cell_style),
         ],
+        # الصف 2: المستلم (3) ومرجع التصدير (6)
         [
             Paragraph("<b>(3) Consignee:</b><br/>" + str(data.get('consignee', 'N/A')), cell_style),
             Paragraph("<b>(6) Export References:</b><br/>" + str(data.get('export_ref', 'N/A')), cell_style),
         ],
+        # الصف 3: طرف الإخطار (4) ووكيل الشحن (7)
         [
             Paragraph("<b>(4) Notify Party:</b><br/>" + str(data.get('notify_party', 'N/A')), cell_style),
             Paragraph("<b>(7) Forwarding Agent / References:</b><br/>" + str(data.get('fwd_agent', 'N/A')), cell_style),
         ],
+        # الصف 4: موانئ الشحن والتفريغ (14) و (15)
         [
             Paragraph("<b>(14) Port of Loading:</b><br/>" + str(data.get('port_loading', 'N/A')), cell_style),
             Paragraph("<b>(15) Port of Discharge:</b><br/>" + str(data.get('port_discharge', 'N/A')), cell_style),
@@ -108,13 +107,15 @@ def create_pdf(data):
     t_info.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ROWHEIGHTS', (0, 0), (-1, -1), 0.7 * inch),
-        ('ROWHEIGHTS', (2, 2), (2, 2), 1.0 * inch), 
+        ('ROWHEIGHTS', (0, 0), (0, 0), 0.7 * inch),  # الشاحن
+        ('ROWHEIGHTS', (1, 1), (1, 1), 0.7 * inch),  # المستلم
+        ('ROWHEIGHTS', (2, 2), (2, 2), 1.0 * inch),  # طرف الإخطار (أكبر)
+        ('ROWHEIGHTS', (3, 3), (3, 3), 0.7 * inch),  # الموانئ
     ]))
 
     elements.append(t_info)
     
-    # --- قسم البضائع (الجدول الرئيسي) ---
+    # --- 3. قسم البضائع (الجدول الرئيسي) ---
     
     elements.append(Spacer(1, 0.2 * inch))
     elements.append(Paragraph("<b>Particulars furnished by the Merchant</b>", styles['h3']))
@@ -141,7 +142,7 @@ def create_pdf(data):
     
     table_goods_full = goods_header + goods_data
     
-    # عرض الأعمدة لجدول البضائع
+    # عرض الأعمدة لجدول البضائع (مساحة أكبر للوصف)
     goods_col_widths = [1.5 * inch, 1.5 * inch, 3.5 * inch, 1.4 * inch]
     t_goods = Table(table_goods_full, col_widths=goods_col_widths, repeatRows=1)
     
@@ -150,7 +151,7 @@ def create_pdf(data):
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('ROWHEIGHTS', (1, 1), (-1, -1), 2.0 * inch) 
+        ('ROWHEIGHTS', (1, 1), (-1, -1), 2.0 * inch) # ارتفاع صف البيانات
     ]))
 
     elements.append(t_goods)

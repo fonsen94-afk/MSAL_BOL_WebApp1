@@ -4,58 +4,64 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
-from PIL import Image # For Logo handling
+from PIL import Image
 import io
 
-# --- 1. REPORTLAB PDF GENERATION LOGIC (NO QR CODE) ---
+# --- 1. منطق إنشاء PDF باستخدام ReportLab ---
 
-# Setup general styles
+# إعداد الأنماط العامة
 styles = getSampleStyleSheet()
 styles['Normal'].fontName = 'Helvetica'
 styles['Normal'].fontSize = 8
-styles['Normal'].leading = 10 # Adjust line spacing for better fit
+styles['Normal'].leading = 10 
 
-# Function to draw the header and logo
+# دالة لرسم الرأس والشعار
 def header_layout(canvas, doc, data):
     canvas.saveState()
     
-    # 1. Logo and Title (Top Left)
+    # 1. الشعار والعنوان (أعلى اليسار)
     try:
         logo_path = 'msal_logo.png'
         img = Image.open(logo_path)
         img_width = 1.0 * inch
         img_height = img.height * (img_width / img.width)
-        # Draw the logo
+        # رسم الشعار
         canvas.drawInlineImage(logo_path, 0.5 * inch, letter[1] - 0.9 * inch, width=img_width, height=img_height)
         
+        # جعل اسم الشركة باللون الأخضر (لتطبيق الستايل على العناوين)
+        canvas.setFillColor(colors.green) 
         canvas.setFont('Helvetica-Bold', 10)
         canvas.drawString(0.5 * inch, letter[1] - 0.5 * inch, "MCL SHIPPING")
+        canvas.setFillColor(colors.black) # العودة للأسود
 
     except FileNotFoundError:
         canvas.setFont('Helvetica-Bold', 10)
         canvas.drawString(0.5 * inch, letter[1] - 0.5 * inch, "MCL SHIPPING (Logo Placeholder)")
     
-    # 2. BILL OF LADING Title (Top Right Center)
+    # 2. عنوان BILL OF LADING
     canvas.setFont('Helvetica-Bold', 18)
     canvas.drawString(4.5 * inch, letter[1] - 0.75 * inch, "BILL OF LADING")
     
-    # 3. Horizontal Separator Line
+    # 3. خط فاصل أفقي
     canvas.line(0.5 * inch, letter[1] - 1.0 * inch, letter[0] - 0.5 * inch, letter[1] - 1.0 * inch)
     
-    # 4. Document No. (5)
+    # 4. رقم المستند (5) - العنوان بالأخضر
     doc_no = data.get('(5) Document No.', 'N/A')
+    canvas.setFillColor(colors.green) 
     canvas.setFont('Helvetica-Bold', 8)
     canvas.drawString(4.5 * inch, letter[1] - 1.2 * inch, "(5) Document No.")
+    
+    # رقم المستند بالأسود
+    canvas.setFillColor(colors.black) 
     canvas.setFont('Helvetica', 10)
     canvas.drawString(5.5 * inch, letter[1] - 1.2 * inch, doc_no) 
 
     canvas.restoreState()
 
 
-# Main PDF generation function
+# دالة إنشاء PDF الرئيسية
 def generate_bl_pdf(data):
     buffer = io.BytesIO()
-    # Adjusted bottom margin back to standard since no QR code is added
     doc = SimpleDocTemplate(buffer, pagesize=letter, 
                             leftMargin=0.5*inch, 
                             rightMargin=0.5*inch, 
@@ -64,52 +70,58 @@ def generate_bl_pdf(data):
 
     Story = []
     
-    # Style for borders and text alignment
+    # نمط الحدود (مع إزالة الخلفيات)
     border_style = TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('PADDING', (0, 0), (-1, -1), 3),
-        ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke), # For header row in goods section
+        # لا يوجد BACKGROUND
     ])
     
-    # --- UPPER SECTION (Parties) ---
+    # دالة مساعدة لإنشاء الفقرات بالعنوان الأخضر
+    def create_green_label_paragraph(label_text, data_key):
+        content = data.get(data_key, '')
+        # يتم تطبيق اللون الأخضر على النص الأساسي (العنوان) فقط
+        return Paragraph(f'<font color="green"><b>{label_text}</b></font><br/>{content}', styles['Normal'])
+    
+    # --- القسم العلوي (Parties) ---
     data_upper = [
         [
-            Paragraph("<b>(2) Shipper / Exporter</b><br/>" + data.get('(2) Shipper', ''), styles['Normal']), 
-            Paragraph("<b>(6) Export References</b><br/>" + data.get('(6) Export References', ''), styles['Normal']),
+            create_green_label_paragraph("(2) Shipper / Exporter", '(2) Shipper'), 
+            create_green_label_paragraph("(6) Export References", '(6) Export References'),
         ],
         [
-            Paragraph("<b>(3) Consignee (complete name and address)</b><br/>" + data.get('(3) Consignee', ''), styles['Normal']), 
-            Paragraph("<b>(7) Forwarding Agent-References</b><br/>" + data.get('(7) Forwarding Agent', ''), styles['Normal']),
+            create_green_label_paragraph("(3) Consignee (complete name and address)", '(3) Consignee'), 
+            create_green_label_paragraph("(7) Forwarding Agent-References", '(7) Forwarding Agent'),
         ],
         [
-            Paragraph("<b>(4) Notify Party (complete name and address)</b><br/>" + data.get('(4) Notify Party', ''), styles['Normal']), 
-            Paragraph("<b>(8) Point and Country of Origin</b><br/>" + data.get('(8) Point and Country', ''), styles['Normal']),
+            create_green_label_paragraph("(4) Notify Party (complete name and address)", '(4) Notify Party'), 
+            create_green_label_paragraph("(8) Point and Country of Origin", '(8) Point and Country'),
         ],
-        ['', Paragraph("<b>(9) Also Notify Party (complete name and address)</b><br/>" + data.get('(9) Also Notify Party', ''), styles['Normal'])],
+        ['', create_green_label_paragraph("(9) Also Notify Party (complete name and address)", '(9) Also Notify Party')],
     ]
     
     table_upper = Table(data_upper, colWidths=[3.75 * inch, 3.75 * inch])
     table_upper.setStyle(border_style)
     Story.append(table_upper)
 
-    # --- MIDDLE SECTION (Transport) ---
+    # --- القسم الأوسط (Transport) ---
     data_middle = [
         [
-            Paragraph("<b>(12) Imo Vesselle No.</b><br/>" + data.get('(12) Imo Vesselle No.', ''), styles['Normal']), 
-            Paragraph("<b>(13) Place of Receipt/Date</b><br/>" + data.get('(13) Place of Receipt/Date', ''), styles['Normal']),
-            Paragraph("<b>(10) Onward Inland Routing/Export Instructions</b><br/>" + data.get('(10) Onward Inland Routing', ''), styles['Normal'])
+            create_green_label_paragraph("(12) Imo Vesselle No.", '(12) Imo Vesselle No.'), 
+            create_green_label_paragraph("(13) Place of Receipt/Date", '(13) Place of Receipt/Date'),
+            create_green_label_paragraph("(10) Onward Inland Routing/Export Instructions", '(10) Onward Inland Routing')
         ],
         [
-            Paragraph("<b>(14) Ocean Vessel/Voy. No.</b><br/>" + data.get('(14) Ocean Vessel/Voy. No.', ''), styles['Normal']), 
-            Paragraph("<b>(15) Port of Loading</b><br/>" + data.get('(15) Port of Loading', ''), styles['Normal']),
-            Paragraph("<b>(16) Port of Discharge</b><br/>" + data.get('(16) Port of Discharge', ''), styles['Normal'])
+            create_green_label_paragraph("(14) Ocean Vessel/Voy. No.", '(14) Ocean Vessel/Voy. No.'), 
+            create_green_label_paragraph("(15) Port of Loading", '(15) Port of Loading'),
+            create_green_label_paragraph("(16) Port of Discharge", '(16) Port of Discharge')
         ],
         [
-            Paragraph("<b>(16) Port of Discharge</b><br/>" + data.get('(16) Port of Discharge (Repeat)', ''), styles['Normal']),
-            Paragraph("<b>(17) Place of Delivery</b><br/>" + data.get('(17) Place of Delivery', ''), styles['Normal']),
-            Paragraph("<b>(11) Ocean Freight Rate (for Merchant's reference)</b>", styles['Normal']),
+            create_green_label_paragraph("(16) Port of Discharge (Repeat)", '(16) Port of Discharge (Repeat)'),
+            create_green_label_paragraph("(17) Place of Delivery", '(17) Place of Delivery'),
+            create_green_label_paragraph("(11) Ocean Freight Rate (for Merchant's reference)", '(11) Ocean Freight Rate'),
         ]
     ]
     
@@ -117,25 +129,26 @@ def generate_bl_pdf(data):
     table_middle.setStyle(border_style)
     Story.append(table_middle)
 
-    # --- GOODS SECTION (Wide Table) ---
-    Story.append(Paragraph("<br/><b>Particulars furnished by the Merchant</b>", styles['Normal']))
+    # --- قسم البضائع (Wide Table) ---
+    # العنوان هنا سيصبح أخضر
+    Story.append(Paragraph('<br/><font color="green"><b>Particulars furnished by the Merchant</b></font>', styles['Normal']))
 
     data_goods = [
-        # Header Row
+        # صف العناوين (Headers) - نجعلها خضراء
         [
-            Paragraph("<b>(18) Container No. And Seal No. Marks & Nos.</b><br/>CONTAINER NO./SEAL NO.", styles['Normal']),
-            Paragraph("<b>(19) Quantity And Kind of Packages</b>", styles['Normal']),
-            Paragraph("<b>(20) Description of Goods</b>", styles['Normal']),
-            Paragraph("<b>(21) Measurement (M³) Gross Weight (KGS)</b>", styles['Normal']),
+            Paragraph('<font color="green"><b>(18) Container No. And Seal No. Marks & Nos.</b><br/>CONTAINER NO./SEAL NO.</font>', styles['Normal']),
+            Paragraph('<font color="green"><b>(19) Quantity And Kind of Packages</b></font>', styles['Normal']),
+            Paragraph('<font color="green"><b>(20) Description of Goods</b></font>', styles['Normal']),
+            Paragraph('<font color="green"><b>(21) Measurement (M³) Gross Weight (KGS)</b></font>', styles['Normal']),
         ],
-        # Data Row
+        # صف البيانات (Data) - ستبقى بالأسود
         [
             data.get('Container No.', ''),
             data.get('Packages Qty.', ''),
             data.get('Description of Goods', ''),
             data.get('Weight/Measure', ''),
         ],
-        # Placeholder rows for form appearance
+        # صفوف فارغة للمظهر
         *[['','','',''] for _ in range(8)],
     ]
     
@@ -143,63 +156,45 @@ def generate_bl_pdf(data):
     table_goods.setStyle(border_style)
     Story.append(table_goods)
     
-    # --- LOWER SECTION (Charges & Issue) ---
-    
-    # Columns for Freight & Charges section (24)
-    charges_header = Table([
-        ['(24) FREIGHT & CHARGES', 'Revenue Tons', 'Rate', 'Per Prepaid', 'Collect']
-    ], colWidths=[1.875 * inch, 1.25 * inch, 1.25 * inch, 1.25 * inch, 1.875 * inch])
-    charges_header.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('FONTSIZE', (0, 0), (-1, -1), 7),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke),
-    ]))
-    
+    # --- القسم السفلي (Charges & Issue) ---
     data_lower = [
-        # Row 1: (22) Total & (24) Charges Header (merged with placeholder columns for alignment)
         [
-            Paragraph("<b>(22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)</b><br/>" + data.get('(22) Total in Words', ''), styles['Normal']),
-            Paragraph("<b>(24) FREIGHT & CHARGES</b><br/>", styles['Normal']), 
-            '', 
-            '', 
-            '',
+            create_green_label_paragraph("(22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", '(22) Total in Words'),
+            create_green_label_paragraph("(24) FREIGHT & CHARGES", '(24) FREIGHT & CHARGES'), 
+            'Revenue Tons', 'Rate', 'Per Prepaid', 'Collect',
         ],
-        # Row 2: B/L No., Number of Originals, Prepaid, Collect
         [
-            Paragraph("<b>(25) B/L NO.</b><br/>" + data.get('(25) B/L No.', ''), styles['Normal']), 
-            Paragraph("<b>(27) Number of Original B(s)/L</b><br/>" + str(data.get('(27) Number of Original', '')), styles['Normal']), 
-            Paragraph("<b>(29) Prepaid at</b><br/>" + data.get('(29) Prepaid at', ''), styles['Normal']), 
-            Paragraph("<b>(30) Collect at</b><br/>" + data.get('(30) Collect at', ''), styles['Normal']),
-            Paragraph("<b>Signature/Stamp:</b><br/>" + data.get('Digital Signature', ''), styles['Normal']), # Addition Field
+            create_green_label_paragraph("(25) B/L NO.", '(25) B/L No.'), 
+            create_green_label_paragraph("(27) Number of Original B(s)/L", '(27) Number of Original'), 
+            create_green_label_paragraph("(29) Prepaid at", '(29) Prepaid at'), 
+            create_green_label_paragraph("(30) Collect at", '(30) Collect at'),
+            create_green_label_paragraph("Signature/Stamp:", 'Digital Signature'), # حقل الإضافة
         ],
-        # Row 3: Service Type, Laden on Board, Place/Date, Exchange Rates
         [
-            Paragraph("<b>(26) Service Type/Mode</b><br/>" + data.get('(26) Service Type', ''), styles['Normal']), 
-            Paragraph("<b>(33) Laden on Board</b><br/>" + data.get('(33) Laden on Board', ''), styles['Normal']), 
-            Paragraph("<b>(28) Place of B(s)/L Issue/Date</b><br/>" + data.get('(28) Place of Issue', ''), styles['Normal']), 
-            Paragraph("<b>(31) Exchange Rate</b><br/>" + data.get('(31) Exchange Rate', ''), styles['Normal']),
-            Paragraph("<b>(32) Exchange Rate</b><br/>" + data.get('(32) Exchange Rate (Repeat)', ''), styles['Normal']),
+            create_green_label_paragraph("(26) Service Type/Mode", '(26) Service Type'), 
+            create_green_label_paragraph("(33) Laden on Board", '(33) Laden on Board'), 
+            create_green_label_paragraph("(28) Place of B(s)/L Issue/Date", '(28) Place of Issue'), 
+            create_green_label_paragraph("(31) Exchange Rate", '(31) Exchange Rate'),
+            create_green_label_paragraph("(32) Exchange Rate", '(32) Exchange Rate (Repeat)'),
         ]
     ]
     
-    # Column widths adjusted slightly for better flow without the QR Code slot
     table_lower = Table(data_lower, colWidths=[1.875 * inch, 1.5 * inch, 1.25 * inch, 1.25 * inch, 1.625 * inch])
     table_lower.setStyle(border_style)
     Story.append(table_lower)
     
-    # Build the document
+    # بناء المستند
     doc.build(Story, onFirstPage=lambda canvas, doc: header_layout(canvas, doc, data), onLaterPages=lambda canvas, doc: header_layout(canvas, doc, data))
     
     buffer.seek(0)
     return buffer
 
-# --- 2. STREAMLIT WEB APPLICATION ---
+# --- 2. تطبيق الويب Streamlit (بدون تغيير في الـ UI) ---
 
 st.set_page_config(layout="wide", page_title="MCL Bill of Lading Generator")
 
-st.title("🚢 Electronic Bill of Lading (B/L) Generator")
-st.caption("Enter the required data to generate a PDF document matching the B/L template.")
+st.title("🚢 نظام إنشاء بوليصة الشحن الإلكترونية (B/L) - تنسيق الألوان المخصص")
+st.caption("أدخل البيانات اللازمة لإنشاء مستند PDF (العناوين بالأخضر والبيانات بالأسود، بدون خلفية).")
 
 data_input = {}
 
@@ -269,29 +264,29 @@ with st.form("bl_form"):
         data_input['(31) Exchange Rate'] = st.text_input("31. Exchange Rate")
         data_input['(32) Exchange Rate (Repeat)'] = st.text_input("32. Exchange Rate (Repeat)")
         
-    submitted = st.form_submit_button("✅ Generate Bill of Lading (PDF)")
+    submitted = st.form_submit_button("✅ إنشاء بوليصة الشحن (PDF)")
 
 
-# --- 3. PROCESSING AND OUTPUT ---
+# --- 3. المعالجة والناتج ---
 if submitted:
-    st.write("Generating Bill of Lading PDF...")
+    st.write("يتم الآن إنشاء ملف بوليصة الشحن...")
     
     try:
-        # Generate PDF
+        # إنشاء PDF
         pdf_buffer = generate_bl_pdf(data_input)
         
-        # Download Button
+        # زر التحميل
         st.download_button(
-            label="⬇️ Download Bill of Lading PDF",
+            label="⬇️ تحميل بوليصة الشحن (PDF)",
             data=pdf_buffer,
             file_name=f"BOL_{data_input['(5) Document No.']}.pdf",
             mime="application/pdf"
         )
         
-        st.success("File created successfully! You can download it now.")
+        st.success("تم إنشاء الملف بنجاح! يمكنك الآن تحميله. تحقق من الألوان في ملف PDF.")
         
     except Exception as e:
-        st.error(f"An error occurred during PDF creation: {e}")
+        st.error(f"حدث خطأ أثناء إنشاء PDF: {e}")
 
 st.markdown("---")
-st.markdown("Powered by Streamlit and ReportLab.")
+st.markdown("تم التصميم بواسطة Streamlit و ReportLab.")

@@ -53,12 +53,12 @@ def create_bill_of_lading_elements(data, doc):
     else:
         logo_img = create_cell_content("MCL", "", is_label=False, font_style='MyTitleGreen')
 
-    # Title: BILL OF LADING [cite: 4]
+    # Title: BILL OF LADING
     title_para = Paragraph("<b>BILL OF LADING</b>", styles['MyTitleGreen'])
 
     header_data.append([
         logo_img,
-        create_cell_content("MCL SHIPPING M", "", is_label=False, font_style='MyTitleGreen'), [cite: 2]
+        create_cell_content("MCL SHIPPING M", "", is_label=False, font_style='MyTitleGreen'),
         title_para,
         create_cell_content("(1) Shipper's Booking No. / Freight Memo No. ...", "", is_label=False, font_style='SmallBlack')
     ])
@@ -76,7 +76,7 @@ def create_bill_of_lading_elements(data, doc):
     
     table_data = []
 
-    # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), (5) Document No. (Col 5) [cite: 3, 5, 7]
+    # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), (5) Document No. (Col 5)
     table_data.append([
         create_cell_content("(2) Shipper / Exporter", ""), "", "", 
         create_cell_content("(3) Consignee(complete name and address)", ""), "", 
@@ -88,7 +88,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Document No."], is_label=False)
     ])
 
-    # Row 2, 3: Notify Party / Export References (50%/50% split - Col 0-2 and Col 3-5) [cite: 9, 6]
+    # Row 2, 3: Notify Party / Export References (50%/50% split - Col 0-2 and Col 3-5)
     table_data.append([
         create_cell_content("(4) Notify Party (complete name and address)", ""), "", "",
         create_cell_content("(6) Export References", ""), "", ""
@@ -98,7 +98,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Export References"], is_label=False), "", ""
     ])
     
-    # Row 4, 5: Forwarding Agent / Origin (50%/50% split) [cite: 8, 22]
+    # Row 4, 5: Forwarding Agent / Origin (50%/50% split)
     table_data.append([
         create_cell_content("(7) Forwarding Agent-References", ""), "", "",
         create_cell_content("(8) Point and Country of Origin (for the Merchant's reference only)", ""), "", ""
@@ -108,7 +108,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Point & Country of Origin"], is_label=False), "", ""
     ])
 
-    # Row 6, 7: Also Notify / Instructions (50%/50% split) [cite: 23, 24]
+    # Row 6, 7: Also Notify / Instructions (50%/50% split)
     table_data.append([
         create_cell_content("(9) Also Notify Party (complete name and address)", ""), "", "",
         create_cell_content("(10) Onward Inland Routing/Export Instructions (which are contracted separately by Merchants entirely for their own account and risk)", ""), "", ""
@@ -118,7 +118,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Export Instructions"], is_label=False), "", ""
     ])
 
-    # Row 8, 9: Transport Details - (Col 0-1), (Col 2-3), (Col 4), (Col 5) [cite: 13, 11, 14, 12]
+    # Row 8, 9: Transport Details - (Col 0-1), (Col 2-3), (Col 4), (Col 5)
     table_data.append([
         create_cell_content("(13) Place of Receipt/Date", ""), "", 
         create_cell_content("(14) Ocean Vessel/Voy. No.", ""), "", 
@@ -132,7 +132,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Port of Discharge"], is_label=False)
     ])
     
-    # Row 10, 11: Place of Delivery / IMO Vessel No. (50%/50% split) [cite: 15, 10]
+    # Row 10, 11: Place of Delivery / IMO Vessel No. (50%/50% split)
     table_data.append([
         create_cell_content("(17) Place of Delivery", ""), "", "",
         create_cell_content("(12) Imo Vessele No.", ""), "", ""
@@ -144,13 +144,13 @@ def create_bill_of_lading_elements(data, doc):
     
     # --- Goods Details Section (Match Image Layout) ---
     
-    # Row 12: Particulars furnished by the Merchant (spanning C2-C5) [cite: 25]
+    # Row 12: Particulars furnished by the Merchant (spanning C2-C5)
     table_data.append([
         "", "", 
         create_cell_content("Particulars furnished by the Merchant", ""), "", "", "" 
     ])
     
-    # Row 13: Goods Details Headers - (Col 0), (Col 1), (Col 2), (Col 3-4), (Col 5) [cite: 16, 20, 21, 26, 34]
+    # Row 13: Goods Details Headers - (Col 0-1), (Col 2), (Col 3-4), (Col 5)
     table_data.append([
         create_cell_content("(18) Container No. And Seal No.<br/>Marks & Nos.", ""), # Combined
         create_cell_content("(19) Quantity And<br/>Kind of Packages", ""), 
@@ -168,14 +168,14 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Measurement / Gross Weight"], is_label=False)
     ])
     
-    # Row 15: CONTAINER NO./SEAL NO. (Spans C0-C5) [cite: 17]
+    # Row 15: CONTAINER NO./SEAL NO. (Spans C0-C5)
     table_data.append([
         create_cell_content("CONTAINER NO./SEAL NO.", ""), "", "", "", "", ""
     ])
 
     # --- Financials/Totals Section (Match Image Layout) ---
     
-    # Row 16, 17: (22) TOTAL NUMBER... (C0-C2) | (24) FREIGHT & CHARGES (C3-C5) 
+    # Row 16, 17: (22) TOTAL NUMBER... (C0-C2) | (24) FREIGHT & CHARGES (C3-C5)
     table_data.append([
         create_cell_content("(22) TOTAL NUMBER OF<br/>CONTAINERS OR PACKAGES<br/>(IN WORDS)", ""), "", "",
         create_cell_content("(24) FREIGHT & CHARGES", ""), "", ""
@@ -185,24 +185,24 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Freight & Charges"], is_label=False), "", ""
     ])
     
-    # Row 18, 19: Financial Detail Breakdown (Match Image Layout) [cite: 30, 31, 32, 33]
+    # Row 18, 19: Financial Detail Breakdown 
     table_data.append([
         create_cell_content("Revenue Tons", ""),
         create_cell_content("Rate", ""),
         create_cell_content("Per Prepaid", ""),
         create_cell_content("Collect", ""),
-        "", "" # Empty C4, C5
+        "", "" 
     ])
     table_data.append([
         create_cell_content("", data.get("Revenue Tons", ""), is_label=False),
         create_cell_content("", data.get("Rate", ""), is_label=False),
         create_cell_content("", data.get("Per Prepaid", ""), is_label=False),
         create_cell_content("", data.get("Collect", ""), is_label=False),
-        "", "" # Empty C4, C5
+        "", "" 
     ])
 
 
-    # Row 20, 21: B/L NO. / Originals [cite: 35, 36]
+    # Row 20, 21: B/L NO. / Originals
     table_data.append([
         create_cell_content("(25) B/L NO.", ""), "", "",
         create_cell_content("(27) Number of Original B(s)/L", ""), "", ""
@@ -212,7 +212,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Number of Original B(s)/L"], is_label=False), "", ""
     ])
     
-    # Row 22, 23: Service Type / Place of Issue [cite: 42, 39]
+    # Row 22, 23: Service Type / Place of Issue
     table_data.append([
         create_cell_content("(26) Service Type/Mode", ""), "", "",
         create_cell_content("(28) Place of B(s)/L Issue/Date", ""), "", ""
@@ -223,7 +223,7 @@ def create_bill_of_lading_elements(data, doc):
     ])
 
 
-    # Row 24, 25: Prepaid at / Collect at [cite: 37, 38]
+    # Row 24, 25: Prepaid at / Collect at
     table_data.append([
         create_cell_content("(29) Prepaid at", ""), "", "",
         create_cell_content("(30) Collect at", ""), "", ""
@@ -233,7 +233,7 @@ def create_bill_of_lading_elements(data, doc):
         create_cell_content("", data["Collect at"], is_label=False), "", ""
     ])
 
-    # Row 26, 27: Laden on Board / Exchange Rate [cite: 43, 40, 41]
+    # Row 26, 27: Laden on Board / Exchange Rate
     table_data.append([
         create_cell_content("(33) Laden on Board", ""), "", "",
         create_cell_content("(31) Exchange Rate / (32) Exchange Rate (Cont.)", ""), "", ""
@@ -278,7 +278,7 @@ def create_bill_of_lading_elements(data, doc):
     span_styles.extend([
         ('SPAN', (2, 12), (5, 12)), 
     ])
-    # Row 13, 14: Goods Details - Container/Marks (C0-C1), Description (C2-C3)
+    # Row 13, 14: Goods Details - Container/Marks (C0-C1), Description (C2-C4)
     span_styles.extend([
         ('SPAN', (0, 13), (1, 13)), 
         ('SPAN', (2, 13), (4, 13)), # C2, C3, C4 merged for Description
@@ -310,7 +310,7 @@ def create_bill_of_lading_elements(data, doc):
     elements.append(main_table)
     elements.append(Spacer(1, 12))
 
-    # --- Footer (Adjusted to match the file text) --- [cite: 29, 28, 27]
+    # --- Footer (Adjusted to match the file text) ---
 
     footer_table = Table([
         [
@@ -389,7 +389,7 @@ st.header("Shipment Details Input (Matching Document Layout)")
 cols = st.columns(3)
 col_index = 0
 
-# Streamlit input logic (remains the same)
+# Streamlit input logic
 for label, key in fields_map.items():
     if key in ["Description of Goods"]:
         height = 150

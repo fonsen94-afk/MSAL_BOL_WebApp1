@@ -1,18 +1,19 @@
 import streamlit as st
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 import io
-# لا نحتاج إلى pandas هنا، لكن سنبقيها إذا كنت تريد استخدامها لاحقًا
-# import pandas as pd 
+import os 
+
+# 🚨 تم تحديث مسار الشعار هنا
+LOGO_PATH = "msal_logo.png" 
 
 # 1. دالة إنشاء محتوى PDF
 def create_pdf(data):
     """
     تنشئ محتوى سند الشحن كملف PDF في الذاكرة باستخدام ReportLab.
-    تم إضافة str() لضمان تجنب أي TypeError في ReportLab.
     """
     buffer = io.BytesIO()
     
@@ -34,7 +35,7 @@ def create_pdf(data):
         parent=styles['h1'],
         fontSize=18,
         alignment=1, # مركز
-        spaceAfter=15
+        spaceAfter=5
     )
     
     # نمط الخطوط الصغيرة داخل الخلايا
@@ -43,30 +44,60 @@ def create_pdf(data):
     cell_style.leading = 11
     
     elements = []
+    
+    # --- إضافة الشعار والعنوان ---
+    
+    header_data = []
 
-    # --- العنوان والشعار ---
-    elements.append(Paragraph("BILL OF LADING", main_title_style))
-    elements.append(Paragraph(f"<b>MCL SHIPPING</b>", styles['Normal']))
+    # 1. إضافة الشعار (الصورة)
+    if os.path.exists(LOGO_PATH):
+        try:
+            # ReportLab Image
+            logo = Image(LOGO_PATH, width=1.0 * inch, height=0.5 * inch)
+            header_data.append(logo)
+        except Exception:
+             # في حالة فشل ReportLab في قراءة نوع الملف، نضع مكانه نص
+            header_data.append(Paragraph("<b>[LOGO PLACEHOLDER]</b>", cell_style))
+    else:
+        # إذا لم يتم العثور على الملف
+        header_data.append(Paragraph("<b>MCL SHIPPING</b>", styles['Normal']))
+    
+    # 2. إضافة عنوان المستند في العمود الثاني
+    header_data.append(Paragraph("BILL OF LADING", main_title_style))
+
+    # دمج الشعار والعنوان في جدول برأس الصفحة
+    header_table = Table(
+        [[header_data[0], header_data[1]]],
+        col_widths=[1.5 * inch, 6.5 * inch]
+    )
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'), # محاذاة العنوان للمنتصف
+        ('LEFTPADDING', (1, 0), (1, 0), 0)
+    ]))
+    
+    elements.append(header_table)
     elements.append(Spacer(1, 0.2 * inch))
-
+    
     # --- البيانات الأساسية في جدول واحد ---
     
+    # تم استخدام str() لضمان سلاسل نصية وتجنب TypeError
     table_data = [
         [
-            Paragraph("<b>(2) Shipper / Exporter:</b><br/>" + str(data['shipper']), cell_style),
-            Paragraph("<b>(5) Document No.:</b><br/>" + str(data['doc_no']), cell_style),
+            Paragraph("<b>(2) Shipper / Exporter:</b><br/>" + str(data.get('shipper', 'N/A')), cell_style),
+            Paragraph("<b>(5) Document No.:</b><br/>" + str(data.get('doc_no', 'N/A')), cell_style),
         ],
         [
-            Paragraph("<b>(3) Consignee:</b><br/>" + str(data['consignee']), cell_style),
-            Paragraph("<b>(6) Export References:</b><br/>" + str(data['export_ref']), cell_style),
+            Paragraph("<b>(3) Consignee:</b><br/>" + str(data.get('consignee', 'N/A')), cell_style),
+            Paragraph("<b>(6) Export References:</b><br/>" + str(data.get('export_ref', 'N/A')), cell_style),
         ],
         [
-            Paragraph("<b>(4) Notify Party:</b><br/>" + str(data['notify_party']), cell_style),
-            Paragraph("<b>(7) Forwarding Agent / References:</b><br/>" + str(data['fwd_agent']), cell_style),
+            Paragraph("<b>(4) Notify Party:</b><br/>" + str(data.get('notify_party', 'N/A')), cell_style),
+            Paragraph("<b>(7) Forwarding Agent / References:</b><br/>" + str(data.get('fwd_agent', 'N/A')), cell_style),
         ],
         [
-            Paragraph("<b>(14) Port of Loading:</b><br/>" + str(data['port_loading']), cell_style),
-            Paragraph("<b>(15) Port of Discharge:</b><br/>" + str(data['port_discharge']), cell_style),
+            Paragraph("<b>(14) Port of Loading:</b><br/>" + str(data.get('port_loading', 'N/A')), cell_style),
+            Paragraph("<b>(15) Port of Discharge:</b><br/>" + str(data.get('port_discharge', 'N/A')), cell_style),
         ],
     ]
     
@@ -100,10 +131,10 @@ def create_pdf(data):
     # بيانات البضائع
     goods_data = [
         [
-            str(data['container_no']), 
-            str(data['quantity']), 
-            Paragraph(str(data['description']), cell_style), 
-            str(data['weight'])
+            str(data.get('container_no', 'N/A')), 
+            str(data.get('quantity', 'N/A')), 
+            Paragraph(str(data.get('description', 'N/A')), cell_style), 
+            str(data.get('weight', 'N/A'))
         ]
     ]
     
@@ -131,10 +162,14 @@ def create_pdf(data):
     return buffer
 
 # 2. دالة واجهة Streamlit (main)
-# 🚨 هام: تأكد أن هذه الدالة تبدأ في بداية السطر بدون أي إزاحة.
 def main():
-    st.set_page_config(layout="wide")
+    st.set_page_config(layout="wide", page_title="أداة سند الشحن")
+    
     st.title("🚢 أداة إنشاء سند الشحن (Bill of Lading)")
+    
+    # عرض الشعار في واجهة Streamlit إذا كان موجوداً
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH, width=100)
     
     st.markdown("---")
 
@@ -195,7 +230,6 @@ def main():
 
     # --- زر التحميل ---
     
-    # استدعاء دالة إنشاء PDF
     pdf_buffer = create_pdf(form_data)
     
     st.download_button(
@@ -206,7 +240,5 @@ def main():
         type="primary"
     )
 
-# 3. استدعاء الدالة الرئيسية
-# 🚨 هام: تأكد أن هذا الجزء في نهاية الملف.
 if __name__ == '__main__':
     main()

@@ -8,17 +8,18 @@ import io
 import os 
 from PIL import Image as PilImage 
 
-# 🚨 تعريف الألوان المطابقة للتصميم الأخضر
+# 🚨 تعريف الألوان المطابقة للتصميم
 DARK_GREEN = colors.Color(0/255, 128/255, 0/255) 
+DARK_GREEN_HEX = '#008000' # اللون الأخضر بصيغة HEX للدمج مع نصوص ReportLab
 LIGHT_GREEN_BG = colors.Color(230/255, 255/255, 230/255) 
 
-# مسار الشعار (تأكد من وجود ملف msal_logo.png في نفس المجلد)
+# مسار الشعار
 LOGO_PATH = "msal_logo.png" 
 
 # 1. دالة إنشاء محتوى PDF
 def create_pdf(data):
     """
-    تنشئ محتوى سند الشحن كملف PDF في الذاكرة، بمطابقة تصميم الصورة باستخدام الألوان الخضراء.
+    تنشئ محتوى سند الشحن كملف PDF في الذاكرة، بمطابقة تصميم الصورة وتوزيع الألوان.
     """
     buffer = io.BytesIO()
     
@@ -42,10 +43,12 @@ def create_pdf(data):
         textColor=DARK_GREEN 
     )
     
+    # نمط النص الفرعي (يستخدم للبيانات) - لونه أسود افتراضيًا
     cell_style = styles['Normal']
     cell_style.fontSize = 8
     cell_style.leading = 11
     
+    # نمط رؤوس الجداول الكبيرة (يكون النص فيه كاملاً بالأخضر)
     header_style = ParagraphStyle(
         'HeaderStyle',
         parent=cell_style,
@@ -73,7 +76,6 @@ def create_pdf(data):
 
     title_cell = Paragraph("BILL OF LADING", main_title_style)
 
-    # 🚨 تم تمرير عرض الأعمدة كوسيط موضعي (تجنب خطأ col_widths)
     header_table = Table(
         [[logo_cell, title_cell]], 
         [1.5 * inch, 6.5 * inch] 
@@ -90,7 +92,11 @@ def create_pdf(data):
     # دالة مساعدة لتنسيق البيانات في الخلايا 
     def format_cell(title, key, height=0.7 * inch):
         content = str(data.get(key, 'N/A'))
-        p = Paragraph(f"<b>({title})</b><br/>{content}", cell_style)
+        
+        # 🚨 التعديل: جعل العنوان أخضر باستخدام وسم <font> والباقي أسود (لون cell_style الافتراضي)
+        title_html = f'<font color="{DARK_GREEN_HEX}"><b>({title})</b></font>'
+        
+        p = Paragraph(f"{title_html}<br/>{content}", cell_style)
         return p
 
     # --- جداول المعلومات الرئيسية (الصف العلوي) ---
@@ -109,6 +115,7 @@ def create_pdf(data):
             format_cell("8) Point and Country of Origin (for the Merchant's reference only):", 'origin', height=0.8 * inch),
         ],
         [
+             # هنا نستخدم header_style لأنها خلايا رؤوس كاملة
              Paragraph("<b>(12) Imo Vessel No.</b>", header_style),
              Paragraph("<b>(9) Also Notify Party (complete name and address)</b>", header_style)
         ],
@@ -130,13 +137,13 @@ def create_pdf(data):
     t_upper = Table(info_data_upper, upper_col_widths, repeatRows=0)
     
     t_upper.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN), # حدود خضراء داكنة
+        ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN), 
         ('ROWHEIGHTS', (0, 0), (1, -1), 0.7 * inch),
         ('ROWHEIGHTS', (2, 2), (2, 2), 0.8 * inch),
         ('ROWHEIGHTS', (3, 3), (3, 3), 0.3 * inch), 
         ('ROWHEIGHTS', (4, 4), (-1, -1), 0.7 * inch),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BACKGROUND', (0, 3), (-1, 3), LIGHT_GREEN_BG), # خلفية خضراء فاتحة
+        ('BACKGROUND', (0, 3), (-1, 3), LIGHT_GREEN_BG), 
     ]))
 
     elements.append(t_upper)
@@ -152,6 +159,7 @@ def create_pdf(data):
             Paragraph("<b>(21) Measurement (M³)<br/>Gross Weight (KGS)</b>", header_style)
         ],
         [
+            # هنا نستخدم cell_style لأنها نصوص فرعية تحت العنوان الأخضر (18)
             Paragraph("CONTAINER NO./SEAL NO.", cell_style),
             Paragraph("Marks & Nos.", cell_style),
             Paragraph("(20) Description of Goods", cell_style),
@@ -159,6 +167,7 @@ def create_pdf(data):
         ]
     ]
     
+    # هذه الخلية يجب أن تكون خضراء بالكامل (رأس الجدول)
     goods_header[0][2] = Paragraph("<b>Particulars furnished by the Merchant</b>", header_style)
 
     goods_data = [
@@ -177,10 +186,10 @@ def create_pdf(data):
     
     t_goods.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
-        ('SPAN', (2, 0), (3, 0)), # دمج خلية "Particulars furnished by the Merchant"
+        ('SPAN', (2, 0), (3, 0)), 
         
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BACKGROUND', (0, 0), (-1, 1), LIGHT_GREEN_BG), # خلفية خضراء فاتحة
+        ('BACKGROUND', (0, 0), (-1, 1), LIGHT_GREEN_BG), 
         ('ROWHEIGHTS', (0, 0), (0, 0), 0.4 * inch),
         ('ROWHEIGHTS', (1, 1), (1, 1), 0.4 * inch),
         ('ROWHEIGHTS', (2, 2), (-1, -1), 2.0 * inch) 
@@ -194,6 +203,7 @@ def create_pdf(data):
     footer_data = [
         [
             format_cell("22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", 'total_packages'),
+            # هذه الأعمدة هي عناوين (Headers)
             Paragraph("Revenue Tons", header_style),
             Paragraph("Rate", header_style),
             Paragraph("Per Prepaid", header_style),
@@ -201,10 +211,11 @@ def create_pdf(data):
         ],
         [
             format_cell("24) FREIGHT & CHARGES", 'freight_charges'),
-            str(data.get('rev_tons', 'N/A')),
-            str(data.get('rate', 'N/A')),
-            str(data.get('per_prepaid', 'N/A')),
-            str(data.get('collect', 'N/A')),
+            # هذه بيانات (Data)
+            Paragraph(str(data.get('rev_tons', 'N/A')), cell_style),
+            Paragraph(str(data.get('rate', 'N/A')), cell_style),
+            Paragraph(str(data.get('per_prepaid', 'N/A')), cell_style),
+            Paragraph(str(data.get('collect', 'N/A')), cell_style),
         ],
     ]
 
@@ -341,5 +352,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        # رسالة خطأ عامة في حال ظهور مشاكل غير متوقعة
         st.error(f"حدث خطأ غير متوقع: {e}")

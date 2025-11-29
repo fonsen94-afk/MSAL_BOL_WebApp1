@@ -1,13 +1,12 @@
 import streamlit as st
 from reportlab.lib.pagesizes import A4
-# استيراد العناصر الضرورية من ReportLab
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 import io
 import os 
-from PIL import Image as PilImage # استيراد Pillow لمعالجة الصور وتثبيتها
+from PIL import Image as PilImage # استيراد Pillow لمعالجة الصور
 
 # 🚨 مسار الشعار
 LOGO_PATH = "msal_logo.png" 
@@ -16,11 +15,9 @@ LOGO_PATH = "msal_logo.png"
 def create_pdf(data):
     """
     تنشئ محتوى سند الشحن كملف PDF في الذاكرة باستخدام ReportLab.
-    (تم تطبيق جميع التصحيحات الضرورية لتجنب الأخطاء السابقة)
     """
     buffer = io.BytesIO()
     
-    # إعداد قالب المستند
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -32,7 +29,6 @@ def create_pdf(data):
     
     styles = getSampleStyleSheet()
     
-    # تصميم الأنماط
     main_title_style = ParagraphStyle(
         'MainTitle',
         parent=styles['h1'],
@@ -41,7 +37,6 @@ def create_pdf(data):
         spaceAfter=5
     )
     
-    # نمط الخطوط الصغيرة داخل الخلايا
     cell_style = styles['Normal']
     cell_style.fontSize = 8
     cell_style.leading = 11
@@ -56,27 +51,23 @@ def create_pdf(data):
     if os.path.exists(LOGO_PATH):
         try:
             pil_img = PilImage.open(LOGO_PATH)
-            # تغيير حجم الصورة بما يتناسب مع حجم الخلية 
             pil_img_resized = pil_img.resize((int(1.0 * inch * 96), int(0.5 * inch * 96)))
             
             img_buffer = io.BytesIO()
             pil_img_resized.save(img_buffer, format='PNG')
             img_buffer.seek(0)
             
-            # إنشاء ReportLab Image من المخزن المؤقت
             logo_cell = Image(img_buffer, width=1.0 * inch, height=0.5 * inch)
             
         except Exception:
-             # إجراء احتياطي في حالة فشل قراءة الصورة
             logo_cell = Paragraph("<b>[LOGO ERROR]</b>", styles['Normal'])
     else:
-        # إذا لم يتم العثور على الملف
         logo_cell = Paragraph("<b>MCL SHIPPING</b>", styles['Normal'])
 
     # 2. إعداد خلية العنوان
     title_cell = Paragraph("BILL OF LADING", main_title_style)
 
-    # 🚨 التصحيح 1: تمرير عرض الأعمدة كوسيط موضعي
+    # تصحيح col_widths
     header_table = Table(
         [[logo_cell, title_cell]], 
         [1.5 * inch, 6.5 * inch] 
@@ -112,7 +103,6 @@ def create_pdf(data):
     ]
     
     col_widths = [4.0 * inch, 4.0 * inch]
-    # 🚨 التصحيح 2: تمرير عرض الأعمدة كوسيط موضعي
     t_info = Table(table_data, col_widths, repeatRows=0) 
     
     t_info.setStyle(TableStyle([
@@ -131,7 +121,6 @@ def create_pdf(data):
     elements.append(Spacer(1, 0.2 * inch))
     elements.append(Paragraph("<b>Particulars furnished by the Merchant</b>", styles['h3']))
     
-    # رؤوس الأعمدة
     goods_header = [
         [
             Paragraph("<b>(18) Container No. And Seal No.</b>", cell_style), 
@@ -141,7 +130,6 @@ def create_pdf(data):
         ],
     ]
     
-    # بيانات البضائع
     goods_data = [
         [
             str(data.get('container_no', 'N/A')), 
@@ -154,7 +142,6 @@ def create_pdf(data):
     table_goods_full = goods_header + goods_data
     
     goods_col_widths = [1.5 * inch, 1.5 * inch, 3.5 * inch, 1.4 * inch]
-    # 🚨 التصحيح 3: تمرير عرض الأعمدة كوسيط موضعي
     t_goods = Table(table_goods_full, goods_col_widths, repeatRows=1) 
     
     t_goods.setStyle(TableStyle([
@@ -203,7 +190,6 @@ def main():
             export_ref = st.text_input("**(6) مرجع التصدير (Export References)**", "EXP/123/2025")
             fwd_agent = st.text_input("**(7) وكيل الشحن (Forwarding Agent)**", "Fast Global Movers")
             
-            # 🚨 تصحيح الخطأ النحوي السابق: استخدام دالة st.markdown
             st.markdown("---") 
             
             port_loading = st.text_input("**(14) ميناء الشحن (Port of Loading)**", "Jebel Ali, UAE")
@@ -231,4 +217,28 @@ def main():
         'notify_party': notify_party,
         'fwd_agent': fwd_agent,
         'doc_no': doc_no,
-        'export_ref
+        'export_ref': export_ref,
+        'port_loading': port_loading,
+        'port_discharge': port_discharge,
+        'container_no': container_no,
+        'quantity': quantity,
+        'weight': weight,
+        'description': description
+    }
+    
+    st.markdown("---")
+
+    # --- زر التحميل ---
+    
+    pdf_buffer = create_pdf(form_data)
+    
+    st.download_button(
+        label="⬇️ تحميل سند الشحن كملف PDF",
+        data=pdf_buffer,
+        file_name="Bill_of_Lading.pdf",
+        mime="application/pdf",
+        type="primary"
+    )
+
+if __name__ == '__main__':
+    main()

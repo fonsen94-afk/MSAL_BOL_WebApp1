@@ -1,6 +1,5 @@
 import streamlit as st
 from reportlab.lib.pagesizes import A4
-# استيراد PageBreak لفصل الصفحات
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -39,7 +38,7 @@ def create_cell_content(label, value, is_label=True, font_style='MyFieldValueBla
 
 
 # ----------------------------------------------------------------------
-# 2. Main Document Creation Function
+# 2. Main Document Creation Function (Contains the exact design/structure)
 # ----------------------------------------------------------------------
 
 def create_bill_of_lading_elements(data, doc):
@@ -76,7 +75,8 @@ def create_bill_of_lading_elements(data, doc):
     elements.append(Spacer(1, 6))
 
     # --- Main B/L Data Table - Building Data (All rows must have 6 elements) ---
-    
+    # The empty string placeholders ("") ensure every row has exactly 6 columns,
+    # which preserves the design integrity when SPAN styles are applied.
     table_data = []
 
     # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), Document No. (Col 5)

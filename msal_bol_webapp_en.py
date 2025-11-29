@@ -73,6 +73,7 @@ def create_pdf(data):
 
     title_cell = Paragraph("BILL OF LADING", main_title_style)
 
+    # 🚨 تصحيح Table 1: تمرير العرض كوسيط موضعي ثالث
     header_table = Table(
         [[logo_cell, title_cell]], 
         [1.5 * inch, 6.5 * inch] 
@@ -121,12 +122,13 @@ def create_pdf(data):
         ],
         [
             format_cell("16) Port of Discharge / (17) Place of Delivery", 'discharge_delivery'),
-            Paragraph("", cell_style) # خلية فارغة مقابلة 
+            Paragraph("", cell_style) 
         ],
     ]
     
     upper_col_widths = [4.0 * inch, 4.0 * inch]
-    t_upper = Table(info_data_upper, col_widths=upper_col_widths, repeatRows=0)
+    # 🚨 تصحيح Table 2: تمرير العرض كوسيط موضعي ثالث
+    t_upper = Table(info_data_upper, upper_col_widths, repeatRows=0)
     
     t_upper.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
@@ -172,7 +174,8 @@ def create_pdf(data):
     table_goods_full = goods_header + goods_data
     
     goods_col_widths = [2.0 * inch, 1.5 * inch, 3.5 * inch, 1.0 * inch] 
-    t_goods = Table(table_goods_full, col_widths=goods_col_widths, repeatRows=2)
+    # 🚨 تصحيح Table 3: تمرير العرض كوسيط موضعي ثالث
+    t_goods = Table(table_goods_full, goods_col_widths, repeatRows=2)
     
     t_goods.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
@@ -208,7 +211,8 @@ def create_pdf(data):
     ]
 
     footer_col_widths = [3.0 * inch, 1.25 * inch, 1.25 * inch, 1.25 * inch, 1.25 * inch]
-    t_footer = Table(footer_data, col_widths=footer_col_widths, repeatRows=0)
+    # 🚨 تصحيح Table 4: تمرير العرض كوسيط موضعي ثالث
+    t_footer = Table(footer_data, footer_col_widths, repeatRows=0)
     
     t_footer.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
@@ -245,7 +249,8 @@ def create_pdf(data):
     ]
 
     final_col_widths = [2.0 * inch, 2.0 * inch, 2.0 * inch, 2.0 * inch]
-    t_final = Table(final_data, col_widths=final_col_widths, repeatRows=0)
+    # 🚨 تصحيح Table 5: تمرير العرض كوسيط موضعي ثالث
+    t_final = Table(final_data, final_col_widths, repeatRows=0)
 
     t_final.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
@@ -263,6 +268,8 @@ def create_pdf(data):
     return buffer
 
 # 2. دالة واجهة Streamlit (main)
+# ... [باقي دالة main]
+# (لم يتم تضمينها بالكامل هنا لتجنب التكرار، ولكن تأكد من استخدام الكود الكامل الذي زودتك به سابقًا)
 def main():
     st.set_page_config(layout="wide", page_title="أداة سند الشحن (مطابق)")
     
@@ -274,6 +281,7 @@ def main():
     st.markdown("---")
     
     # --- جمع البيانات الافتراضية ---
+    # يتم جمع البيانات هنا
     data = {}
     
     with st.expander("بيانات الشاحن والمستلم والموانئ"):
@@ -291,7 +299,7 @@ def main():
             data['fwd_agent'] = st.text_input("(7) Forwarding Agent / References:", "Fast Global Movers")
             data['origin'] = st.text_input("(8) Point and Country of Origin:", "Hamburg, Germany")
             data['also_notify_party'] = st.text_area("(9) Also Notify Party:", "N/A", height=50)
-            data['inland_export_inst'] = st.text_area("(10) Inland Routing/Export Instructions:", "Handle with care.", height=50)
+            data['inland_export_inst'] = st.text_area("(10) Onward Inland Routing/Export Instructions:", "Handle with care.", height=50)
 
 
     with st.expander("📦 تفاصيل البضائع والرسوم"):

@@ -15,17 +15,18 @@ import os
 
 # تأكد من توفر ملفات الخطوط هذه في نفس المجلد
 try:
+    # يجب أن تكون أسماء الملفات مطابقة لما لديك:
     pdfmetrics.registerFont(TTFont('ArabicFont', 'Arial.ttf'))
     pdfmetrics.registerFont(TTFont('ArabicFont-Bold', 'Arial_Bold.ttf'))
     arabic_font = "ArabicFont"
 except:
+    # استخدام خط احتياطي إذا لم يتم العثور على الخطوط
     st.warning("⚠️ تنبيه: لم يتم العثور على ملفات 'Arial.ttf' أو 'Arial_Bold.ttf'. قد لا يتم عرض النص العربي بشكل صحيح في ملف PDF.")
-    arabic_font = "Helvetica" # استخدام خط احتياطي
+    arabic_font = "Helvetica" 
 
-base_font = "Helvetica" # ReportLab internal reference
+base_font = "Helvetica"
 styles = getSampleStyleSheet()
 
-# تم تصحيح الخطأ: إزالة المسافات غير القابلة للطباعة (U+00A0)
 green_color = colors.HexColor("#008000")
 black_color = colors.black
 light_gray_color = colors.HexColor("#EEEEEE")
@@ -53,7 +54,7 @@ st.title("MSAL Shipping - Bill of Lading Generator (نموذج المستند) �
 
 logo_path = "msal_logo.png"
 
-# تعريف الحقول (باستخدام الترقيم المطابق للمستند المرفق)
+# تعريف الحقول
 fields_map = {
     "(2) Shipper / Exporter": "Shipper / Exporter",
     "(3) Consignee(complete name and address)": "Consignee",
@@ -106,11 +107,9 @@ for label, key in fields_map.items():
     else:
         height = 40
     
-    # دمج حقل Exchange Rate الثاني مع الأول في واجهة Streamlit لسهولة الإدخال
     if key == "Exchange Rate (Cont.)":
         continue
     
-    # التعامل مع الحقول المالية في Streamlit في عمود واحد
     if key in ["Revenue Tons", "Rate", "Per Prepaid", "Collect"]:
          data[key] = st.text_input(label, value="", key=key)
          continue
@@ -153,7 +152,7 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, green_color),
-        ('SPAN', (1, 0), (2, 0)), # دمج عمودين لاسم الشركة
+        ('SPAN', (1, 0), (2, 0)),
     ]))
     elements.append(header_table)
     elements.append(Spacer(1, 6))
@@ -162,9 +161,6 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
     # Main B/L Data Table
     # ----------------------------------------------------
     table_data = []
-
-    # استخدام 6 أعمدة أساسية لتمثيل التخطيطات المختلفة
-    col_widths = [doc.width * 0.166] * 6
 
     # Row 1-2: Shipper (50%) / Consignee (50%)
     table_data.append([
@@ -309,34 +305,41 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         create_cell_content("(33) Laden on Board", "")
     ])
     table_data.append([
-        create_cell_content("", data["Exchange Rate"], is_label=False), # هنا تم دمج القيمتين
+        create_cell_content("", data["Exchange Rate"], is_label=False),
         create_cell_content("", data["Laden on Board Date"], is_label=False)
     ])
     
     # ----------------------------------------------------
-    # Table Styling and Column Spans
+    # Table Styling and Column Spans (تم تصحيح الأخطاء التركيبية)
     # ----------------------------------------------------
     
+    col_widths = [doc.width * 0.166] * 6
     main_table = Table(table_data, colWidths=col_widths)
+    
+    # --- 1. توليد أنماط الخلفية بشكل منفصل (لتجنب SyntaxError) ---
+    background_styles = []
+    for i in range(len(table_data)):
+        if i % 2 == 0:
+            background_styles.append(('BACKGROUND', (0, i), (-1, i), light_gray_color))
     
     main_style = [
         ('GRID', (0, 0), (-1, -1), 0.5, green_color),
         ('BOX', (0, 0), (-1, -1), 1, black_color),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-
-        # خلفية خضراء خفيفة للعناوين (Labels) - الصفوف الزوجية (0, 2, 4, ...)
-        for i in range(len(table_data)):
-            if i % 2 == 0:
-                 main_style.append(('BACKGROUND', (0, i), (-1, i), light_gray_color))
-        
-        # --- دمج الخلايا العامة (50% / 50%) ---
-        
+    ]
+    
+    # --- 2. دمج أنماط الخلفية ---
+    main_style.extend(background_styles)
+    
+    # --- 3. إضافة أنماط الدمج (SPAN) ---
+    span_styles = [
         # Shipper/Consignee (Row 0, 1) - Col 0-2 & Col 3-4 (50%) & Col 5 (16.6%)
         ('SPAN', (0, 0), (2, 0)), ('SPAN', (3, 0), (4, 0)),
         ('SPAN', (0, 1), (2, 1)), ('SPAN', (3, 1), (4, 1)),
 
-        # Notify Party / Export References / Forwarding Agent / Origin (50%/50%)
+        # Notify Party / Export References / Forwarding Agent / Origin / ... (50%/50%)
+        # تم تطبيق الدمج على كل زوج من صفوف (Label, Value)
         for i in [2, 4, 6, 10, 18, 20, 22, 24]:
              ('SPAN', (0, i), (2, i)), ('SPAN', (3, i), (5, i)),
              ('SPAN', (0, i+1), (2, i+1)), ('SPAN', (3, i+1), (5, i+1)),
@@ -349,8 +352,6 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         ('SPAN', (0, 10), (2, 10)), ('SPAN', (3, 10), (5, 10)),
         ('SPAN', (0, 11), (2, 11)), ('SPAN', (3, 11), (5, 11)),
 
-        # --- دمج خلايا الصفوف التي تحتوي على أكثر من 4 أعمدة ---
-        
         # Transport Details (Row 8, 9) - 4 أعمدة متساوية
         ('SPAN', (4, 8), (5, 8)), # دمج Col 4 و 5 لـ Port of Discharge Label
         ('SPAN', (4, 9), (5, 9)), # دمج Col 4 و 5 لـ Port of Discharge Value
@@ -369,7 +370,30 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         ('SPAN', (0, 16), (2, 16)), ('SPAN', (3, 16), (5, 16)),
         ('SPAN', (0, 17), (2, 17)), ('SPAN', (3, 17), (5, 17)),
     ]
+    
+    # دمج أنماط الدمج (SPAN) ضمن حلقة SPAN
+    # استخدام حلقة فور (for loop) لدمج أنماط SPAN بطريقة صحيحة:
+    for i in [2, 4, 6, 10, 18, 20, 22, 24]:
+        main_style.append(('SPAN', (0, i), (2, i)))
+        main_style.append(('SPAN', (3, i), (5, i)))
+        main_style.append(('SPAN', (0, i+1), (2, i+1)))
+        main_style.append(('SPAN', (3, i+1), (5, i+1)))
 
+    # إضافة أنماط SPAN الفردية
+    main_style.append(('SPAN', (3, 6), (5, 6)))
+    main_style.append(('SPAN', (3, 7), (5, 7)))
+    main_style.append(('SPAN', (4, 8), (5, 8)))
+    main_style.append(('SPAN', (4, 9), (5, 9)))
+    main_style.append(('SPAN', (3, 12), (5, 12)))
+    main_style.append(('SPAN', (3, 13), (5, 13)))
+    main_style.append(('SPAN', (4, 14), (5, 14)))
+    main_style.append(('SPAN', (4, 15), (5, 15)))
+    main_style.append(('SPAN', (0, 0), (2, 0)))
+    main_style.append(('SPAN', (3, 0), (4, 0)))
+    main_style.append(('SPAN', (0, 1), (2, 1)))
+    main_style.append(('SPAN', (3, 1), (4, 1)))
+
+    
     main_table.setStyle(TableStyle(main_style))
     elements.append(main_table)
     elements.append(Spacer(1, 12))
@@ -379,12 +403,6 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
     # ----------------------------------------------------
 
     tracking_url = data.get("Tracking URL (for QR Code)", "")
-    
-    # دمج Exchange Rate (Cont.) مع Exchange Rate
-    exchange_rate_value = data["Exchange Rate"]
-    # if data["Exchange Rate (Cont.)"]:
-    #     exchange_rate_value += " / " + data["Exchange Rate (Cont.)"]
-    # (تم ترك القيمة المدمجة كما تم إدخالها في حقل Exchange Rate فقط لتجنب التعقيد)
     
     if tracking_url:
         qr = qrcode.QRCode(box_size=3, border=2)
@@ -432,4 +450,4 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
             mime="application/pdf"
         )
     except Exception as e:
-        st.error(f"حدث خطأ أثناء توليد ملف PDF. تأكد من توفر ملفات الخطوط العربية (Arial.ttf): {e}")
+        st.error(f"حدث خطأ أثناء توليد ملف PDF. تأكد من توفر ملفات الخطوط العربية (Arial.ttf) أو قم بإزالتها: {e}")

@@ -3,16 +3,14 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.pdfbase.pdfmetrics import registerFont
-from reportlab.pdfbase.cidfonts import CIDFont
 import io
 import os
 
 # ----------------------------------------------------------------------
-# 1. Styles and Configuration (English Only)
+# 1. Styles and Configuration
 # ----------------------------------------------------------------------
 
-# Using standard ReportLab fonts to avoid dependency issues (Arial.ttf)
+# Using standard ReportLab fonts (Helvetica)
 base_font = "Helvetica"
 styles = getSampleStyleSheet()
 
@@ -41,7 +39,6 @@ def create_cell_content(label, value, is_label=True, font_style='MyFieldValueBla
 st.set_page_config(layout="wide")
 st.title("MSAL Shipping - Bill of Lading Generator 🚢")
 
-# NOTE: The logo file (msal_logo.png) must be present in the same directory.
 logo_path = "msal_logo.png"
 
 # Define fields based on the document layout
@@ -193,7 +190,8 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Export Instructions"], is_label=False)
     ])
 
-    # Row 9-10: Transport Details - 4 columns
+    # Row 9-10: Transport Details - 4 items in 6 columns (0, 1, 2, 3)
+    # Col 4 and 5 are implicitly empty. Spans below correct the visual layout.
     table_data.append([
         create_cell_content("(13) Place of Receipt/Date", ""),
         create_cell_content("(14) Ocean Vessel/Voy. No.", ""),
@@ -217,7 +215,8 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["IMO Vessel No."], is_label=False)
     ])
 
-    # Row 13-14: Marks & Nos. / Container No. / Packages / Description
+    # Row 13-14: Marks & Nos. / Container No. / Packages / Description (4 items in 6 columns)
+    # Col 4 and 5 are implicitly empty. Spans below correct the visual layout.
     table_data.append([
         create_cell_content("Marks & Nos.", ""),
         create_cell_content("(18) Container No. And Seal No.", ""),
@@ -231,7 +230,8 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Description of Goods"], is_label=False)
     ])
 
-    # Row 15-16: Financials / Measurement
+    # Row 15-16: Financials / Measurement (5 items in 6 columns)
+    # Col 5 is implicitly empty. Spans below correct the visual layout.
     table_data.append([
         create_cell_content("Revenue Tons", ""),
         create_cell_content("Rate", ""),
@@ -303,56 +303,51 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
     col_widths = [doc.width * 0.166] * 6
     main_table = Table(table_data, colWidths=col_widths)
     
-    # 1. Generate background styles separately (Fixes SyntaxError)
+    # 1. Generate background styles 
     background_styles = []
     for i in range(len(table_data)):
         if i % 2 == 0:
             background_styles.append(('BACKGROUND', (0, i), (-1, i), light_gray_color))
     
-    # 2. Generate SPAN styles separately (Fixes SyntaxError)
+    # 2. Generate SPAN styles 
     span_styles = []
     
-    # Shipper/Consignee (Row 0, 1) - Col 0-2 & Col 3-4 (50%) & Col 5 (16.6%)
+    # --- 2.1 Fixed SPANS (Rows 0, 1) ---
+    # Shipper/Consignee/DocNo: (0-2), (3-4), (5-5)
     span_styles.extend([
         ('SPAN', (0, 0), (2, 0)), ('SPAN', (3, 0), (4, 0)),
         ('SPAN', (0, 1), (2, 1)), ('SPAN', (3, 1), (4, 1)),
     ])
     
-    # Rows with 50%/50% split on 6 columns (Label/Value)
-    for i in [2, 4, 6, 10, 18, 20, 22, 24]:
-        # Field 1 takes 3 columns (50%), Field 2 takes 3 columns (50%)
+    # --- 2.2 Looping SPANS (Simple 50%/50% Split) ---
+    # Rows: 2, 4, 6, 10, 16, 18, 20, 22, 24
+    for i in [2, 4, 6, 10, 16, 18, 20, 22, 24]:
+        # Field 1 (Col 0-2), Field 2 (Col 3-5)
         span_styles.extend([
             ('SPAN', (0, i), (2, i)), ('SPAN', (3, i), (5, i)),
             ('SPAN', (0, i+1), (2, i+1)), ('SPAN', (3, i+1), (5, i+1)),
         ])
 
-    # Individual SPAN styles
+    # --- 2.3 Complex/Individual SPANS ---
     
-    # Instructions (takes 50% of the last two)
+    # Row 8/9: Transport Details (4 cells in 6 columns: 2/6, 2/6, 1/6, 1/6)
     span_styles.extend([
-        ('SPAN', (3, 6), (5, 6)), ('SPAN', (3, 7), (5, 7)),
+        ('SPAN', (0, 8), (1, 8)), # Place of Receipt label (Col 0, 1)
+        ('SPAN', (2, 8), (3, 8)), # Ocean Vessel label (Col 2, 3)
+        ('SPAN', (0, 9), (1, 9)), # Place of Receipt value (Col 0, 1)
+        ('SPAN', (2, 9), (3, 9)), # Ocean Vessel value (Col 2, 3)
     ])
     
-    # Port of Discharge (4 equal columns for transport details)
+    # Row 12/13: Marks/Container/Packages/Description (4 cells in 6 columns: 1/6, 1/6, 1/6, 3/6)
     span_styles.extend([
-        ('SPAN', (4, 8), (5, 8)), 
-        ('SPAN', (4, 9), (5, 9)),
+        ('SPAN', (3, 12), (5, 12)), # Description Label (Col 3, 4, 5)
+        ('SPAN', (3, 13), (5, 13)), # Description Value (Col 3, 4, 5)
     ])
     
-    # Description (Col 3-5)
+    # Row 14/15: Financials/Measurement (5 cells in 6 columns: 1/6, 1/6, 1/6, 1/6, 2/6)
     span_styles.extend([
-        ('SPAN', (3, 12), (5, 12)), ('SPAN', (3, 13), (5, 13)),
-    ])
-    
-    # Measurement (Col 4-5)
-    span_styles.extend([
-        ('SPAN', (4, 14), (5, 14)), ('SPAN', (4, 15), (5, 15)),
-    ])
-    
-    # Total Packages / Freight & Charges (50%/50%)
-    span_styles.extend([
-        ('SPAN', (0, 16), (2, 16)), ('SPAN', (3, 16), (5, 16)),
-        ('SPAN', (0, 17), (2, 17)), ('SPAN', (3, 17), (5, 17)),
+        ('SPAN', (4, 14), (5, 14)), # Measurement Label (Col 4, 5)
+        ('SPAN', (4, 15), (5, 15)), # Measurement Value (Col 4, 5)
     ])
     
     # 3. Combine all styles into the final list
@@ -406,4 +401,4 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
             mime="application/pdf"
         )
     except Exception as e:
-        st.error(f"An error occurred while generating the PDF: {e}")
+        st.error(f"An error occurred while building the PDF: {e}")

@@ -5,14 +5,14 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 import io
-import pandas as pd # تم تضمينها للتأكد من توفرها
+import pandas as pd # مكتبة Pandas مُضافة لبيئة Streamlit
 
 # 1. دالة إنشاء محتوى PDF
 def create_pdf(data):
     """
     تنشئ محتوى سند الشحن كملف PDF في الذاكرة باستخدام ReportLab.
     """
-    # إنشاء مخزن مؤقت (Buffer) في الذاكرة لتخزين ملف PDF
+    # إنشاء مخزن مؤقت (Buffer) في الذاكرة
     buffer = io.BytesIO()
     
     # إعداد قالب المستند
@@ -27,7 +27,7 @@ def create_pdf(data):
     
     styles = getSampleStyleSheet()
     
-    # تصميم مخصص للعنوان الرئيسي
+    # تصميم الأنماط
     main_title_style = ParagraphStyle(
         'MainTitle',
         parent=styles['h1'],
@@ -38,8 +38,8 @@ def create_pdf(data):
     
     # نمط الخطوط الصغيرة داخل الخلايا
     cell_style = styles['Normal']
-    cell_style.fontSize = 9
-    cell_style.leading = 12
+    cell_style.fontSize = 8
+    cell_style.leading = 11
     
     elements = []
 
@@ -48,56 +48,38 @@ def create_pdf(data):
     elements.append(Paragraph(f"<b>MCL SHIPPING</b>", styles['Normal']))
     elements.append(Spacer(1, 0.2 * inch))
 
-    # --- بيانات سند الشحن في شكل جدول (تقليد الصناديق) ---
+    # --- البيانات الأساسية في جدول واحد (لضمان التنسيق) ---
     
-    # الصف الأول
-    data_table_1 = [
+    table_data = [
         [
-            Paragraph("<b>(2) Shipper / Exporter:</b><br/>" + data.get('shipper', ''), cell_style),
-            Paragraph("<b>(5) Document No.:</b><br/>" + data.get('doc_no', ''), cell_style),
+            Paragraph("<b>(2) Shipper / Exporter:</b><br/>" + data['shipper'], cell_style),
+            Paragraph("<b>(5) Document No.:</b><br/>" + data['doc_no'], cell_style),
         ],
-    ]
-    # (الوثيقة الأصلية كانت مقسمة عمودياً، هنا نستخدم جدول ReportLab)
-    
-    # الصف الثاني (يحتوي على ثلاثة حقول رئيسية)
-    data_table_2 = [
         [
-            Paragraph("<b>(3) Consignee:</b><br/>" + data.get('consignee', ''), cell_style),
-            Paragraph("<b>(6) Export References:</b><br/>" + data.get('export_ref', ''), cell_style),
+            Paragraph("<b>(3) Consignee:</b><br/>" + data['consignee'], cell_style),
+            Paragraph("<b>(6) Export References:</b><br/>" + data['export_ref'], cell_style),
         ],
-    ]
-    
-    # الصف الثالث (Notify Party و Agent)
-    data_table_3 = [
         [
-            Paragraph("<b>(4) Notify Party:</b><br/>" + data.get('notify_party', ''), cell_style),
-            Paragraph("<b>(7) Forwarding Agent / References:</b><br/>" + data.get('fwd_agent', ''), cell_style),
+            Paragraph("<b>(4) Notify Party:</b><br/>" + data['notify_party'], cell_style),
+            Paragraph("<b>(7) Forwarding Agent / References:</b><br/>" + data['fwd_agent'], cell_style),
+        ],
+        [
+            Paragraph("<b>(14) Port of Loading:</b><br/>" + data['port_loading'], cell_style),
+            Paragraph("<b>(15) Port of Discharge:</b><br/>" + data['port_discharge'], cell_style),
         ],
     ]
     
-    # الصف الرابع (Ports)
-    data_table_4 = [
-        [
-            Paragraph("<b>(14) Port of Loading:</b><br/>" + data.get('port_loading', ''), cell_style),
-            Paragraph("<b>(15) Port of Discharge:</b><br/>" + data.get('port_discharge', ''), cell_style),
-        ],
-    ]
+    col_widths = [4.0 * inch, 4.0 * inch]
+    t_info = Table(table_data, col_widths=col_widths, repeatRows=0)
+    
+    t_info.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ROWHEIGHTS', (0, 0), (-1, -1), 0.7 * inch),
+        ('ROWHEIGHTS', (2, 2), (2, 2), 1.0 * inch), # مساحة أكبر للإخطار
+    ]))
 
-    # دالة مساعدة لإنشاء وتنسيق الجداول ذات العمودين
-    def create_styled_table(data_rows, height_factor=1.0):
-        t = Table(data_rows, col_widths=[4.0 * inch, 4.0 * inch])
-        t.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('ROWHEIGHTS', (0, 0), (-1, -1), 0.5 * inch * height_factor), # ضبط ارتفاع الصف
-        ]))
-        elements.append(t)
-        elements.append(Spacer(1, 0.05 * inch))
-
-    create_styled_table(data_table_1, height_factor=1.2)
-    create_styled_table(data_table_2, height_factor=1.2)
-    create_styled_table(data_table_3, height_factor=1.5) # مساحة أكبر للإشعارات
-    create_styled_table(data_table_4, height_factor=1.0)
+    elements.append(t_info)
     
     # --- قسم البضائع (الجدول الرئيسي) ---
     
@@ -106,16 +88,30 @@ def create_pdf(data):
     
     # رؤوس الأعمدة
     goods_header = [
-        ["(18) Container No. And Seal No.", "(19) Quantity and Kind of Packages", "(20) Description of Goods", "(21) Gross Weight (KGS)"],
+        [
+            Paragraph("<b>(18) Container No. And Seal No.</b>", cell_style), 
+            Paragraph("<b>(19) Quantity and Kind of Packages</b>", cell_style), 
+            Paragraph("<b>(20) Description of Goods</b>", cell_style), 
+            Paragraph("<b>(21) Gross Weight (KGS)</b>", cell_style)
+        ],
     ]
-    # بيانات البضائع (الصف الذي سيتم ملؤه)
+    
+    # بيانات البضائع
     goods_data = [
-        [data.get('container_no', 'N/A'), data.get('quantity', 'N/A'), data.get('description', 'N/A'), data.get('weight', 'N/A')]
+        [
+            data['container_no'], 
+            data['quantity'], 
+            Paragraph(data['description'], cell_style), # نستخدم Paragraph هنا للوصف الطويل
+            data['weight']
+        ]
     ]
+    
+    # دمج رؤوس الأعمدة والبيانات
+    table_goods_full = goods_header + goods_data
     
     # عرض الأعمدة لجدول البضائع
     goods_col_widths = [1.5 * inch, 1.5 * inch, 3.5 * inch, 1.4 * inch]
-    t_goods = Table(goods_header + goods_data, col_widths=goods_col_widths, repeatRows=1)
+    t_goods = Table(table_goods_full, col_widths=goods_col_widths, repeatRows=1)
     
     t_goods.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
@@ -149,9 +145,9 @@ def main():
         col1, col2 = st.columns(2)
         
         with col1:
-            shipper = st.text_area("**(2) الشاحن / المصدر (Shipper / Exporter)**", "M.L. General Trading LLC, Dubai")
-            consignee = st.text_area("**(3) المستلم (Consignee)**", "Ahmad Logistics, Jeddah")
-            notify_party = st.text_area("**(4) طرف الإخطار (Notify Party)**", "Same as Consignee")
+            shipper = st.text_area("**(2) الشاحن / المصدر (Shipper / Exporter)**", "M.L. General Trading LLC, Dubai", height=70)
+            consignee = st.text_area("**(3) المستلم (Consignee)**", "Ahmad Logistics, Jeddah", height=70)
+            notify_party = st.text_area("**(4) طرف الإخطار (Notify Party)**", "Same as Consignee", height=70)
 
 
         with col2:

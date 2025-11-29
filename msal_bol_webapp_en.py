@@ -148,6 +148,8 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
     elements.append(Spacer(1, 6))
 
     # --- Main B/L Data Table - Building Data (All rows must have 6 elements) ---
+    # The empty string placeholders ("") ensure every row has exactly 6 columns,
+    # which resolves the "list index out of range" error when applying SPAN styles.
     table_data = []
 
     # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), Document No. (Col 5)
@@ -162,9 +164,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Document No."], is_label=False)
     ])
 
-    # Row 2-7, 10-11, 16-25 (Standard 50%/50% split - Col 0-2 and Col 3-5)
-    
-    # Row 2, 3: Notify Party / Export References
+    # Row 2, 3: Notify Party / Export References (50%/50% split - Col 0-2 and Col 3-5)
     table_data.append([
         create_cell_content("(4) Notify Party (complete name and address)", ""), "", "",
         create_cell_content("(6) Export References", ""), "", ""
@@ -174,7 +174,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Export References"], is_label=False), "", ""
     ])
     
-    # Row 4, 5: Forwarding Agent / Origin
+    # Row 4, 5: Forwarding Agent / Origin (50%/50% split)
     table_data.append([
         create_cell_content("(7) Forwarding Agent-References", ""), "", "",
         create_cell_content("(8) Point and Country of Origin (for the Merchant's reference only)", ""), "", ""
@@ -184,7 +184,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Point & Country of Origin"], is_label=False), "", ""
     ])
 
-    # Row 6, 7: Also Notify / Instructions
+    # Row 6, 7: Also Notify / Instructions (50%/50% split)
     table_data.append([
         create_cell_content("(9) Also Notify Party (complete name and address)", ""), "", "",
         create_cell_content("(10) Onward Inland Routing/Export Instructions (which are contracted separately by Merchants entirely for their own account and risk)", ""), "", ""
@@ -208,7 +208,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Port of Discharge"], is_label=False)
     ])
     
-    # Row 10, 11: Place of Delivery / IMO Vessel No.
+    # Row 10, 11: Place of Delivery / IMO Vessel No. (50%/50% split)
     table_data.append([
         create_cell_content("(17) Place of Delivery", ""), "", "",
         create_cell_content("(12) Imo Vessele No.", ""), "", ""
@@ -218,7 +218,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["IMO Vessel No."], is_label=False), "", ""
     ])
 
-    # Row 12, 13: Marks/Container/Packages/Description - (Col 0), (Col 1), (Col 2), (Col 3-5)
+    # Row 12, 13: Goods Details - (Col 0), (Col 1), (Col 2), (Col 3-5)
     table_data.append([
         create_cell_content("Marks & Nos.", ""), 
         create_cell_content("(18) Container No. And Seal No.", ""), 
@@ -232,7 +232,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Description of Goods"], is_label=False), "", ""
     ])
 
-    # Row 14, 15: Financials/Measurement - (Col 0), (Col 1), (Col 2), (Col 3), (Col 4-5)
+    # Row 14, 15: Financials/Measurement - (Col 0-3 are 1 col each), Measurement (Col 4-5)
     table_data.append([
         create_cell_content("Revenue Tons", ""),
         create_cell_content("Rate", ""),
@@ -248,7 +248,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Measurement / Gross Weight"], is_label=False), ""
     ])
     
-    # Row 16, 17: Total Packages / Freight & Charges (50%/50%)
+    # Row 16, 17: Total Packages / Freight & Charges (50%/50% split)
     table_data.append([
         create_cell_content("(22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", ""), "", "",
         create_cell_content("(24) FREIGHT & CHARGES", ""), "", ""
@@ -259,7 +259,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
     ])
 
 
-    # Row 18, 19: B/L No. / Service Type (50%/50%)
+    # Row 18, 19: B/L No. / Service Type (50%/50% split)
     table_data.append([
         create_cell_content("(25) B/L NO.", ""), "", "",
         create_cell_content("(26) Service Type/Mode", ""), "", ""
@@ -269,7 +269,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Service Type / Mode"], is_label=False), "", ""
     ])
 
-    # Row 20, 21: Originals / Issue Date (50%/50%)
+    # Row 20, 21: Originals / Issue Date (50%/50% split)
     table_data.append([
         create_cell_content("(27) Number of Original B(s)/L", ""), "", "",
         create_cell_content("(28) Place of B(s)/L Issue/Date", ""), "", ""
@@ -279,7 +279,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Place of B(s)/L Issue / Date"], is_label=False), "", ""
     ])
 
-    # Row 22, 23: Prepaid at / Collect at (50%/50%)
+    # Row 22, 23: Prepaid at / Collect at (50%/50% split)
     table_data.append([
         create_cell_content("(29) Prepaid at", ""), "", "",
         create_cell_content("(30) Collect at", ""), "", ""
@@ -289,7 +289,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
         create_cell_content("", data["Collect at"], is_label=False), "", ""
     ])
     
-    # Row 24, 25: Exchange Rate / Laden on Board (50%/50%)
+    # Row 24, 25: Exchange Rate / Laden on Board (50%/50% split)
     table_data.append([
         create_cell_content("(31) Exchange Rate / (32) Exchange Rate (Cont.)", ""), "", "",
         create_cell_content("(33) Laden on Board", ""), "", ""
@@ -400,4 +400,5 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
             mime="application/pdf"
         )
     except Exception as e:
+        # Changed the error message to clarify the issue
         st.error(f"An error occurred while building the PDF: {e}")

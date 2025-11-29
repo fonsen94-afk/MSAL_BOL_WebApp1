@@ -3,26 +3,16 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-import qrcode
+from reportlab.pdfbase.pdfmetrics import registerFont
+from reportlab.pdfbase.cidfonts import CIDFont
 import io
 import os
 
 # ----------------------------------------------------------------------
-# 1. إعداد الخطوط والأنماط (Styles)
+# 1. Styles and Configuration (English Only)
 # ----------------------------------------------------------------------
 
-# تأكد من توفر ملفات الخطوط هذه في نفس المجلد
-try:
-    # يجب أن تكون أسماء الملفات مطابقة لما لديك:
-    pdfmetrics.registerFont(TTFont('ArabicFont', 'Arial.ttf'))
-    pdfmetrics.registerFont(TTFont('ArabicFont-Bold', 'Arial_Bold.ttf'))
-    arabic_font = "ArabicFont"
-except:
-    st.warning("⚠️ تنبيه: لم يتم العثور على ملفات 'Arial.ttf' أو 'Arial_Bold.ttf'. قد لا يتم عرض النص العربي بشكل صحيح في ملف PDF.")
-    arabic_font = "Helvetica" 
-
+# Using standard ReportLab fonts to avoid dependency issues (Arial.ttf)
 base_font = "Helvetica"
 styles = getSampleStyleSheet()
 
@@ -30,14 +20,14 @@ green_color = colors.HexColor("#008000")
 black_color = colors.black
 light_gray_color = colors.HexColor("#EEEEEE")
 
-# تعريف الأنماط
-styles.add(ParagraphStyle(name='MyTitleGreen', fontName=arabic_font + '-Bold', fontSize=16, leading=20, alignment=1, textColor=green_color, allowOrphans=0, allowWidows=0))
-styles.add(ParagraphStyle(name='MyFieldLabelGreen', fontName=arabic_font + '-Bold', fontSize=8, leading=10, textColor=green_color, spaceBefore=2, spaceAfter=2, alignment=0, allowOrphans=0, allowWidows=0))
-styles.add(ParagraphStyle(name='MyFieldValueBlack', fontName=arabic_font, fontSize=9, leading=11, textColor=black_color, spaceBefore=2, spaceAfter=2, alignment=0, allowOrphans=0, allowWidows=0))
-styles.add(ParagraphStyle(name='SmallBlack', fontName=arabic_font, fontSize=7, leading=9, textColor=black_color, alignment=0, allowOrphans=0, allowWidows=0))
+# Define styles using standard fonts
+styles.add(ParagraphStyle(name='MyTitleGreen', fontName=base_font + '-Bold', fontSize=16, leading=20, alignment=1, textColor=green_color, allowOrphans=0, allowWidows=0))
+styles.add(ParagraphStyle(name='MyFieldLabelGreen', fontName=base_font + '-Bold', fontSize=8, leading=10, textColor=green_color, spaceBefore=2, spaceAfter=2, alignment=0, allowOrphans=0, allowWidows=0))
+styles.add(ParagraphStyle(name='MyFieldValueBlack', fontName=base_font, fontSize=9, leading=11, textColor=black_color, spaceBefore=2, spaceAfter=2, alignment=0, allowOrphans=0, allowWidows=0))
+styles.add(ParagraphStyle(name='SmallBlack', fontName=base_font, fontSize=7, leading=9, textColor=black_color, alignment=0, allowOrphans=0, allowWidows=0))
 
 
-# دالة مساعدة لإنشاء الفقرات وإدارة فواصل الأسطر
+# Helper function to create paragraphs and handle line breaks
 def create_cell_content(label, value, is_label=True, font_style='MyFieldValueBlack'):
     style = styles['MyFieldLabelGreen'] if is_label else styles[font_style]
     content = value.replace("\n", "<br/>") if not is_label else label
@@ -45,15 +35,16 @@ def create_cell_content(label, value, is_label=True, font_style='MyFieldValueBla
 
 
 # ----------------------------------------------------------------------
-# 2. واجهة Streamlit وإدخال البيانات
+# 2. Streamlit Interface and Data Input
 # ----------------------------------------------------------------------
 
 st.set_page_config(layout="wide")
-st.title("MSAL Shipping - Bill of Lading Generator (نموذج المستند) 🚢")
+st.title("MSAL Shipping - Bill of Lading Generator 🚢")
 
+# NOTE: The logo file (msal_logo.png) must be present in the same directory.
 logo_path = "msal_logo.png"
 
-# تعريف الحقول
+# Define fields based on the document layout
 fields_map = {
     "(2) Shipper / Exporter": "Shipper / Exporter",
     "(3) Consignee(complete name and address)": "Consignee",
@@ -90,15 +81,15 @@ fields_map = {
     "(31) Exchange Rate": "Exchange Rate",
     "(32) Exchange Rate (Cont.)": "Exchange Rate (Cont.)",
     "(33) Laden on Board": "Laden on Board Date",
-    "Tracking URL (for QR Code)": "Tracking URL (for QR Code)"
 }
 
 data = {}
-st.header("إدخال تفاصيل الشحن (مطابقة لتخطيط المستند)")
+st.header("Shipment Details Input (Matching Document Layout)")
 cols = st.columns(3)
 col_index = 0
 
 for label, key in fields_map.items():
+    # Set default text area height based on field importance
     if key in ["Description of Goods"]:
         height = 150
     elif key in ["Shipper / Exporter", "Consignee", "Notify Party"]:
@@ -106,31 +97,31 @@ for label, key in fields_map.items():
     else:
         height = 40
     
+    # Skip the second part of Exchange Rate in input, as it's often combined in display
     if key == "Exchange Rate (Cont.)":
         continue
     
-    # استخدام st.text_input للحقول المالية الصغيرة
-    if key in ["Revenue Tons", "Rate", "Per Prepaid", "Collect"]:
+    # Use text_input for small numerical/short fields
+    if key in ["Revenue Tons", "Rate", "Per Prepaid", "Collect", "Document No.", "IMO Vessel No.", "B/L No.", "Number of Original B(s)/L"]:
          data[key] = st.text_input(label, value="", key=key)
          continue
          
+    # Use text_area for multi-line address/description fields
     data[key] = cols[col_index % 3].text_area(label, value="", height=height, key=key)
     col_index += 1
 
 
 # ----------------------------------------------------------------------
-# 3. توليد PDF
+# 3. PDF Generation Logic
 # ----------------------------------------------------------------------
 
-if st.button("توليد ملف PDF مع رمز QR 📄"):
+if st.button("Generate Bill of Lading PDF ⬇️"):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             leftMargin=0.5*72, rightMargin=0.5*72, topMargin=0.5*72, bottomMargin=0.5*72)
     elements = []
 
-    # ----------------------------------------------------
-    # Header (Logo and Title)
-    # ----------------------------------------------------
+    # --- Header (Logo and Title) ---
     header_data = []
 
     if logo_path and os.path.exists(logo_path):
@@ -157,9 +148,7 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
     elements.append(header_table)
     elements.append(Spacer(1, 6))
 
-    # ----------------------------------------------------
-    # Main B/L Data Table - بناء البيانات
-    # ----------------------------------------------------
+    # --- Main B/L Data Table - Building Data ---
     table_data = []
 
     # Row 1-2: Shipper (50%) / Consignee (50%) / Document No. (16.6%)
@@ -204,7 +193,7 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         create_cell_content("", data["Export Instructions"], is_label=False)
     ])
 
-    # Row 9-10: Transport Details - 4 أعمدة (25% لكل عمود)
+    # Row 9-10: Transport Details - 4 columns
     table_data.append([
         create_cell_content("(13) Place of Receipt/Date", ""),
         create_cell_content("(14) Ocean Vessel/Voy. No.", ""),
@@ -228,7 +217,7 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         create_cell_content("", data["IMO Vessel No."], is_label=False)
     ])
 
-    # Row 13-14: Marks & Nos. (1/6) / Container No. (1/6) / Packages (1/6) / Description (3/6)
+    # Row 13-14: Marks & Nos. / Container No. / Packages / Description
     table_data.append([
         create_cell_content("Marks & Nos.", ""),
         create_cell_content("(18) Container No. And Seal No.", ""),
@@ -242,7 +231,7 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         create_cell_content("", data["Description of Goods"], is_label=False)
     ])
 
-    # Row 15-16: Financials (4/6) / Measurement (2/6)
+    # Row 15-16: Financials / Measurement
     table_data.append([
         create_cell_content("Revenue Tons", ""),
         create_cell_content("Rate", ""),
@@ -309,20 +298,18 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         create_cell_content("", data["Laden on Board Date"], is_label=False)
     ])
     
-    # ----------------------------------------------------
-    # Table Styling and Column Spans
-    # ----------------------------------------------------
+    # --- Table Styling and Column Spans ---
     
     col_widths = [doc.width * 0.166] * 6
     main_table = Table(table_data, colWidths=col_widths)
     
-    # 1. توليد أنماط الخلفية بشكل منفصل
+    # 1. Generate background styles separately (Fixes SyntaxError)
     background_styles = []
     for i in range(len(table_data)):
         if i % 2 == 0:
             background_styles.append(('BACKGROUND', (0, i), (-1, i), light_gray_color))
     
-    # 2. توليد أنماط الدمج (SPAN) بشكل منفصل
+    # 2. Generate SPAN styles separately (Fixes SyntaxError)
     span_styles = []
     
     # Shipper/Consignee (Row 0, 1) - Col 0-2 & Col 3-4 (50%) & Col 5 (16.6%)
@@ -331,24 +318,24 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         ('SPAN', (0, 1), (2, 1)), ('SPAN', (3, 1), (4, 1)),
     ])
     
-    # Notify Party / Export References / Forwarding Agent / Origin / ... (50%/50%)
+    # Rows with 50%/50% split on 6 columns (Label/Value)
     for i in [2, 4, 6, 10, 18, 20, 22, 24]:
-        # الحقل الأول يأخذ 3 أعمدة (50%)، والثاني يأخذ 3 أعمدة (50%)
+        # Field 1 takes 3 columns (50%), Field 2 takes 3 columns (50%)
         span_styles.extend([
             ('SPAN', (0, i), (2, i)), ('SPAN', (3, i), (5, i)),
             ('SPAN', (0, i+1), (2, i+1)), ('SPAN', (3, i+1), (5, i+1)),
         ])
 
-    # أنماط الدمج الفردية التي لا تتبع نمط 50%/50%
+    # Individual SPAN styles
     
-    # Instructions (تأخذ 50% من الـ 50% الأخيرتين)
+    # Instructions (takes 50% of the last two)
     span_styles.extend([
         ('SPAN', (3, 6), (5, 6)), ('SPAN', (3, 7), (5, 7)),
     ])
     
-    # Port of Discharge (4 أعمدة متساوية)
+    # Port of Discharge (4 equal columns for transport details)
     span_styles.extend([
-        ('SPAN', (4, 8), (5, 8)), # دمج Col 4 و 5 لـ Port of Discharge
+        ('SPAN', (4, 8), (5, 8)), 
         ('SPAN', (4, 9), (5, 9)),
     ])
     
@@ -368,7 +355,7 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         ('SPAN', (0, 17), (2, 17)), ('SPAN', (3, 17), (5, 17)),
     ])
     
-    # 3. دمج جميع الأنماط في القائمة النهائية
+    # 3. Combine all styles into the final list
     main_style = [
         ('GRID', (0, 0), (-1, -1), 0.5, green_color),
         ('BOX', (0, 0), (-1, -1), 1, black_color),
@@ -383,56 +370,40 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
     elements.append(main_table)
     elements.append(Spacer(1, 12))
 
-    # ----------------------------------------------------
-    # Footer / QR Code
-    # ----------------------------------------------------
+    # --- Footer (No QR Code) ---
 
-    tracking_url = data.get("Tracking URL (for QR Code)", "")
+    # Footer/Signature Table (2 rows, 2 columns)
+    footer_table = Table([
+        [
+            Paragraph("SHIPPER'S LOAD & COUNT<br/>OCEAN FREIGHT PREPAID<br/>RECEIPT IS ACKNOWLEDGED BY THE SHIPPER", styles['SmallBlack']),
+            create_cell_content("For MCL Shipping M", "", font_style='MyTitleGreen')
+        ],
+        [
+            Spacer(1, 40), # Placeholder for signature area
+            create_cell_content("", "Authorized Signature", is_label=False)
+        ]
+    ], colWidths=[doc.width * 0.5, doc.width * 0.5])
+
+    footer_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, green_color),
+        ('ALIGN', (0, 0), (-1, 1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 1), (1, 1), 20),
+    ]))
+    elements.append(footer_table)
     
-    if tracking_url:
-        qr = qrcode.QRCode(box_size=3, border=2)
-        qr.add_data(tracking_url)
-        qr.make(fit=True)
-        qr_img = qr.make_image(fill_color="black", back_color="white")
-        qr_buffer = io.BytesIO()
-        qr_img.save(qr_buffer, format="PNG")
-        qr_buffer.seek(0)
-        qr_image = Image(qr_buffer, width=70, height=70)
-
-        # جدول التوقيع و QR
-        footer_table = Table([
-            [
-                create_cell_content("Tracking QR Code", ""),
-                create_cell_content("", ""),
-                create_cell_content("For MCL Shipping M", "", font_style='MyTitleGreen')
-            ],
-            [
-                qr_image,
-                Paragraph("SHIPPER'S LOAD & COUNT<br/>OCEAN FREIGHT PREPAID<br/>RECEIPT IS ACKNOWLEDGED BY THE SHIPPER", styles['SmallBlack']),
-                create_cell_content("", "Authorized Signature", is_label=False)
-            ]
-        ], colWidths=[doc.width * 0.2, doc.width * 0.4, doc.width * 0.4])
-
-        footer_table.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -1), 0.5, green_color),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        elements.append(footer_table)
-    
-    # ----------------------------------------------------
-    # Build Document and Download
-    # ----------------------------------------------------
+    # --- Build Document and Download ---
     
     try:
         doc.build(elements)
         buffer.seek(0)
     
         st.download_button(
-            label="تحميل بوليصة الشحن PDF ⬇️",
+            label="Download Bill of Lading PDF ⬇️",
             data=buffer,
             file_name=f"{data.get('B/L No.', 'BILL_OF_LADING').replace('/', '_')}.pdf",
             mime="application/pdf"
         )
     except Exception as e:
-        st.error(f"حدث خطأ أثناء توليد ملف PDF. تأكد من توفر ملفات الخطوط العربية (Arial.ttf): {e}")
+        st.error(f"An error occurred while generating the PDF: {e}")

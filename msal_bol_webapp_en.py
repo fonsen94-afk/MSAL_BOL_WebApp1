@@ -19,7 +19,7 @@ green_color = colors.HexColor("#008000")
 black_color = colors.black
 light_gray_color = colors.HexColor("#EEEEEE")
 
-# Define styles using standard fonts
+# Define styles using standard fonts (The font sizes are maintained to ensure proper relative spacing)
 styles.add(ParagraphStyle(name='MyTitleGreen', fontName=base_font + '-Bold', fontSize=16, leading=20, alignment=1, textColor=green_color, allowOrphans=0, allowWidows=0))
 styles.add(ParagraphStyle(name='MyFieldLabelGreen', fontName=base_font + '-Bold', fontSize=8, leading=10, textColor=green_color, spaceBefore=2, spaceAfter=2, alignment=0, allowOrphans=0, allowWidows=0))
 styles.add(ParagraphStyle(name='MyFieldValueBlack', fontName=base_font, fontSize=9, leading=11, textColor=black_color, spaceBefore=2, spaceAfter=2, alignment=0, allowOrphans=0, allowWidows=0))
@@ -49,7 +49,6 @@ def create_bill_of_lading_elements(data, doc):
     logo_path = "msal_logo.png"
 
     # --- Header (Logo and Title) ---
-    # Using a table for layout alignment but removing all borders as requested.
     header_data = []
 
     if logo_path and os.path.exists(logo_path):
@@ -57,7 +56,8 @@ def create_bill_of_lading_elements(data, doc):
     else:
         logo_img = create_cell_content("MCL", "", is_label=False, font_style='MyTitleGreen')
 
-    title_para = Paragraph("<b>BILL OF LADING</b>", styles['MyTitleGreen'])
+    # Change the title as requested: BILLOF-LADING
+    title_para = Paragraph("<b>BILLOF-LADING</b>", styles['MyTitleGreen'])
 
     header_data.append([
         logo_img,
@@ -70,7 +70,7 @@ def create_bill_of_lading_elements(data, doc):
     header_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        # REMOVED GRID/BOX here to comply with "لا اريد ان يكون في داخل جدول" (visually)
+        # No GRID or BOX on the header table as requested
         ('SPAN', (1, 0), (2, 0)),
     ]))
     elements.append(header_table)
@@ -80,16 +80,16 @@ def create_bill_of_lading_elements(data, doc):
     
     table_data = []
 
-    # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), Document No. (Col 5)
+    # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), (5) B/L No. (Col 5) - MODIFIED LABEL HERE
     table_data.append([
         create_cell_content("(2) Shipper / Exporter", ""), "", "", 
         create_cell_content("(3) Consignee(complete name and address)", ""), "", 
-        create_cell_content("(5) Document No.", "")
+        create_cell_content("(5) B/L No.", "") # Changed from Document No.
     ])
     table_data.append([
         create_cell_content("", data["Shipper / Exporter"], is_label=False), "", "",
         create_cell_content("", data["Consignee"], is_label=False), "",
-        create_cell_content("", data["Document No."], is_label=False)
+        create_cell_content("", data["Document No."], is_label=False) # Data field remains "Document No." for consistency
     ])
 
     # Row 2, 3: Notify Party / Export References (50%/50% split - Col 0-2 and Col 3-5)
@@ -242,7 +242,7 @@ def create_bill_of_lading_elements(data, doc):
     span_styles = []
     
     # --- 2.1 Fixed SPANS (Rows 0, 1) ---
-    # Shipper/Consignee/DocNo: Col 0-2 (Shipper), Col 3-4 (Consignee), Col 5 (DocNo)
+    # Shipper/Consignee/(5)B/L No.: Col 0-2 (Shipper), Col 3-4 (Consignee), Col 5 (DocNo/B/L No.)
     span_styles.extend([
         ('SPAN', (0, 0), (2, 0)), ('SPAN', (3, 0), (4, 0)),
         ('SPAN', (0, 1), (2, 1)), ('SPAN', (3, 1), (4, 1)),
@@ -282,7 +282,7 @@ def create_bill_of_lading_elements(data, doc):
     main_style = [
         # Keep internal GRID lines with green color
         ('GRID', (0, 0), (-1, -1), 0.5, green_color),
-        # REMOVED BOX style to comply with "لا اريد ان يكون في اطارة"
+        # BOX style is REMOVED to satisfy "لا اريد ان يكون في اطارة"
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]
@@ -295,7 +295,6 @@ def create_bill_of_lading_elements(data, doc):
     elements.append(Spacer(1, 12))
 
     # --- Footer ---
-    # Removed BOX from the footer table as well
 
     footer_table = Table([
         [
@@ -310,6 +309,7 @@ def create_bill_of_lading_elements(data, doc):
 
     footer_table.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, green_color),
+        # BOX style is REMOVED
         ('ALIGN', (0, 0), (-1, 1), 'LEFT'),
         ('ALIGN', (1, 0), (1, 1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -327,12 +327,12 @@ def create_bill_of_lading_elements(data, doc):
 st.set_page_config(layout="wide")
 st.title("MSAL Shipping - Bill of Lading Generator 🚢")
 
-# Define fields based on the document layout (same as before)
+# Define fields based on the document layout (Updated field 5 label)
 fields_map = {
     "(2) Shipper / Exporter": "Shipper / Exporter",
     "(3) Consignee(complete name and address)": "Consignee",
     "(4) Notify Party (complete name and address)": "Notify Party",
-    "(5) Document No.": "Document No.",
+    "(5) B/L No. (as Document No.)": "Document No.", # Updated label
     "(6) Export References": "Export References",
     "(7) Forwarding Agent-References": "Forwarding Agent-References",
     "(8) Point and Country of Origin (for the Merchant's reference only)": "Point & Country of Origin",
@@ -384,6 +384,7 @@ for label, key in fields_map.items():
         continue
     
     if key in ["Revenue Tons", "Rate", "Per Prepaid", "Collect", "Document No.", "IMO Vessel No.", "B/L No.", "Number of Original B(s)/L"]:
+         # Note: 'Document No.' here corresponds to field (5)
          data[key] = st.text_input(label, value="", key=key)
          continue
          
@@ -416,11 +417,11 @@ if st.button("Generate Bill of Lading PDF (3 Copies) ⬇️"):
         buffer.seek(0)
     
         st.download_button(
-            label="Download Bill of Lading PDF (3 Copies) ⬇️",
+            label="Download BILLOF-LADING PDF (3 Copies) ⬇️",
             data=buffer,
-            file_name=f"{data.get('B/L No.', 'BILL_OF_LADING_3_COPIES').replace('/', '_')}.pdf",
+            file_name=f"{data.get('B/L No.', 'BILLOF_LADING_3_COPIES').replace('/', '_')}.pdf",
             mime="application/pdf"
         )
-        st.success("تم إنشاء ملف PDF بثلاث نسخ مطابقة للتصميم المطلوب وبدون إطار خارجي.")
+        st.success("تم إنشاء ملف PDF بثلاث نسخ مطابقة للتصميم المطلوب وبدون إطار خارجي، وتم تعديل العنوان وحقل (5).")
     except Exception as e:
         st.error(f"حدث خطأ أثناء بناء ملف PDF: {e}")

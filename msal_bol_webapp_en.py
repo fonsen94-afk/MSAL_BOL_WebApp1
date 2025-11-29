@@ -1,6 +1,6 @@
 import streamlit as st
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
@@ -17,9 +17,9 @@ styles = getSampleStyleSheet()
 # Define Colors
 green_color = colors.HexColor("#008000")
 black_color = colors.black
-light_gray_color = colors.HexColor("#EEEEEE")
+# تم إزالة light_gray_color لأنه لم يعد مطلوباً للخلفية
 
-# Define styles using standard fonts (The font sizes are maintained to ensure proper relative spacing)
+# Define styles using standard fonts
 styles.add(ParagraphStyle(name='MyTitleGreen', fontName=base_font + '-Bold', fontSize=16, leading=20, alignment=1, textColor=green_color, allowOrphans=0, allowWidows=0))
 styles.add(ParagraphStyle(name='MyFieldLabelGreen', fontName=base_font + '-Bold', fontSize=8, leading=10, textColor=green_color, spaceBefore=2, spaceAfter=2, alignment=0, allowOrphans=0, allowWidows=0))
 styles.add(ParagraphStyle(name='MyFieldValueBlack', fontName=base_font, fontSize=9, leading=11, textColor=black_color, spaceBefore=2, spaceAfter=2, alignment=0, allowOrphans=0, allowWidows=0))
@@ -56,7 +56,7 @@ def create_bill_of_lading_elements(data, doc):
     else:
         logo_img = create_cell_content("MCL", "", is_label=False, font_style='MyTitleGreen')
 
-    # Change the title as requested: BILLOF-LADING
+    # Title: BILLOF-LADING
     title_para = Paragraph("<b>BILLOF-LADING</b>", styles['MyTitleGreen'])
 
     header_data.append([
@@ -70,7 +70,6 @@ def create_bill_of_lading_elements(data, doc):
     header_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        # No GRID or BOX on the header table as requested
         ('SPAN', (1, 0), (2, 0)),
     ]))
     elements.append(header_table)
@@ -80,16 +79,16 @@ def create_bill_of_lading_elements(data, doc):
     
     table_data = []
 
-    # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), (5) B/L No. (Col 5) - MODIFIED LABEL HERE
+    # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), (5) B/L No. (Col 5)
     table_data.append([
         create_cell_content("(2) Shipper / Exporter", ""), "", "", 
         create_cell_content("(3) Consignee(complete name and address)", ""), "", 
-        create_cell_content("(5) B/L No.", "") # Changed from Document No.
+        create_cell_content("(5) B/L No.", "") 
     ])
     table_data.append([
         create_cell_content("", data["Shipper / Exporter"], is_label=False), "", "",
         create_cell_content("", data["Consignee"], is_label=False), "",
-        create_cell_content("", data["Document No."], is_label=False) # Data field remains "Document No." for consistency
+        create_cell_content("", data["Document No."], is_label=False) 
     ])
 
     # Row 2, 3: Notify Party / Export References (50%/50% split - Col 0-2 and Col 3-5)
@@ -232,13 +231,9 @@ def create_bill_of_lading_elements(data, doc):
     col_widths = [doc.width * 0.166] * 6
     main_table = Table(table_data, colWidths=col_widths)
     
-    # 1. Generate background styles 
-    background_styles = []
-    for i in range(len(table_data)):
-        if i % 2 == 0:
-            background_styles.append(('BACKGROUND', (0, i), (-1, i), light_gray_color))
+    # 1. Background styles are REMOVED as requested (لا اريد خلفية خلف الكتابة)
     
-    # 2. Generate SPAN styles 
+    # 2. Generate SPAN styles (to maintain the table structure/design)
     span_styles = []
     
     # --- 2.1 Fixed SPANS (Rows 0, 1) ---
@@ -249,7 +244,6 @@ def create_bill_of_lading_elements(data, doc):
     ])
     
     # --- 2.2 Looping SPANS (Simple 50%/50% Split - Col 0-2 and Col 3-5) ---
-    # Rows: 2, 4, 6, 10, 16, 18, 20, 22, 24 (Labels and Values)
     for i in [2, 4, 6, 10, 16, 18, 20, 22, 24]:
         span_styles.extend([
             ('SPAN', (0, i), (2, i)), ('SPAN', (3, i), (5, i)),
@@ -282,12 +276,11 @@ def create_bill_of_lading_elements(data, doc):
     main_style = [
         # Keep internal GRID lines with green color
         ('GRID', (0, 0), (-1, -1), 0.5, green_color),
-        # BOX style is REMOVED to satisfy "لا اريد ان يكون في اطارة"
+        # BOX style is REMOVED
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]
     
-    main_style.extend(background_styles)
     main_style.extend(span_styles)
 
     main_table.setStyle(TableStyle(main_style))
@@ -309,7 +302,6 @@ def create_bill_of_lading_elements(data, doc):
 
     footer_table.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, green_color),
-        # BOX style is REMOVED
         ('ALIGN', (0, 0), (-1, 1), 'LEFT'),
         ('ALIGN', (1, 0), (1, 1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -327,12 +319,12 @@ def create_bill_of_lading_elements(data, doc):
 st.set_page_config(layout="wide")
 st.title("MSAL Shipping - Bill of Lading Generator 🚢")
 
-# Define fields based on the document layout (Updated field 5 label)
+# Define fields based on the document layout 
 fields_map = {
     "(2) Shipper / Exporter": "Shipper / Exporter",
     "(3) Consignee(complete name and address)": "Consignee",
     "(4) Notify Party (complete name and address)": "Notify Party",
-    "(5) B/L No. (as Document No.)": "Document No.", # Updated label
+    "(5) B/L No. (as Document No.)": "Document No.", 
     "(6) Export References": "Export References",
     "(7) Forwarding Agent-References": "Forwarding Agent-References",
     "(8) Point and Country of Origin (for the Merchant's reference only)": "Point & Country of Origin",
@@ -384,7 +376,6 @@ for label, key in fields_map.items():
         continue
     
     if key in ["Revenue Tons", "Rate", "Per Prepaid", "Collect", "Document No.", "IMO Vessel No.", "B/L No.", "Number of Original B(s)/L"]:
-         # Note: 'Document No.' here corresponds to field (5)
          data[key] = st.text_input(label, value="", key=key)
          continue
          
@@ -392,24 +383,17 @@ for label, key in fields_map.items():
     col_index += 1
 
 
-if st.button("Generate Bill of Lading PDF (3 Copies) ⬇️"):
+if st.button("Generate BILLOF-LADING PDF (1 Copy) ⬇️"):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             leftMargin=0.5*72, rightMargin=0.5*72, topMargin=0.5*72, bottomMargin=0.5*72)
     
     final_elements = []
 
-    # --- 1st Copy ---
+    # --- Single Copy Generation ---
     final_elements.extend(create_bill_of_lading_elements(data, doc))
-    final_elements.append(PageBreak()) 
+    # PageBreak removed
 
-    # --- 2nd Copy ---
-    final_elements.extend(create_bill_of_lading_elements(data, doc))
-    final_elements.append(PageBreak())
-
-    # --- 3rd Copy (No page break after the last one) ---
-    final_elements.extend(create_bill_of_lading_elements(data, doc))
-    
     # --- Build Document and Download ---
     
     try:
@@ -417,11 +401,11 @@ if st.button("Generate Bill of Lading PDF (3 Copies) ⬇️"):
         buffer.seek(0)
     
         st.download_button(
-            label="Download BILLOF-LADING PDF (3 Copies) ⬇️",
+            label="Download BILLOF-LADING PDF (1 Copy) ⬇️",
             data=buffer,
-            file_name=f"{data.get('B/L No.', 'BILLOF_LADING_3_COPIES').replace('/', '_')}.pdf",
+            file_name=f"{data.get('B/L No.', 'BILLOF_LADING').replace('/', '_')}.pdf",
             mime="application/pdf"
         )
-        st.success("تم إنشاء ملف PDF بثلاث نسخ مطابقة للتصميم المطلوب وبدون إطار خارجي، وتم تعديل العنوان وحقل (5).")
+        st.success("تم إنشاء ملف PDF بنسخة واحدة مطابقة للتصميم، وبدون إطار خارجي أو خلفية ملونة.")
     except Exception as e:
         st.error(f"حدث خطأ أثناء بناء ملف PDF: {e}")

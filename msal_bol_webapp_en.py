@@ -1,6 +1,7 @@
 import streamlit as st
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+# استيراد PageBreak لفصل الصفحات
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
@@ -38,87 +39,14 @@ def create_cell_content(label, value, is_label=True, font_style='MyFieldValueBla
 
 
 # ----------------------------------------------------------------------
-# 2. Streamlit Interface and Data Input
+# 2. Main Document Creation Function
 # ----------------------------------------------------------------------
 
-st.set_page_config(layout="wide")
-st.title("MSAL Shipping - Bill of Lading Generator 🚢")
-
-logo_path = "msal_logo.png"
-
-# Define fields based on the document layout
-fields_map = {
-    "(2) Shipper / Exporter": "Shipper / Exporter",
-    "(3) Consignee(complete name and address)": "Consignee",
-    "(4) Notify Party (complete name and address)": "Notify Party",
-    "(5) Document No.": "Document No.",
-    "(6) Export References": "Export References",
-    "(7) Forwarding Agent-References": "Forwarding Agent-References",
-    "(8) Point and Country of Origin (for the Merchant's reference only)": "Point & Country of Origin",
-    "(9) Also Notify Party (complete name and address)": "Also Notify Party",
-    "(10) Onward Inland Routing/Export Instructions": "Export Instructions",
-    "(12) Imo Vessele No.": "IMO Vessel No.",
-    "(13) Place of Receipt/Date": "Place of Receipt / Date",
-    "(14) Ocean Vessel/Voy. No.": "Ocean Vessel / Voyage No.",
-    "(15) Port of Loading": "Port of Loading",
-    "(16) Port of Discharge": "Port of Discharge",
-    "(17) Place of Delivery": "Place of Delivery",
-    "Marks & Nos.": "Marks & Nos.",
-    "(18) Container No. And Seal No.": "Container No. / Seal No.",
-    "(19) Quantity And Kind of Packages": "Quantity & Kind of Packages",
-    "(20) Description of Goods": "Description of Goods",
-    "Revenue Tons": "Revenue Tons",
-    "Rate": "Rate",
-    "Per Prepaid": "Per Prepaid",
-    "Collect": "Collect",
-    "(21) Measurement (M³) Gross Weight (KGS)": "Measurement / Gross Weight",
-    "(22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)": "Total Containers / Packages",
-    "(24) FREIGHT & CHARGES": "Freight & Charges",
-    "(25) B/L NO.": "B/L No.",
-    "(26) Service Type/Mode": "Service Type / Mode",
-    "(27) Number of Original B(s)/L": "Number of Original B(s)/L",
-    "(28) Place of B(s)/L Issue/Date": "Place of B(s)/L Issue / Date",
-    "(29) Prepaid at": "Prepaid at",
-    "(30) Collect at": "Collect at",
-    "(31) Exchange Rate": "Exchange Rate",
-    "(32) Exchange Rate (Cont.)": "Exchange Rate (Cont.)",
-    "(33) Laden on Board": "Laden on Board Date",
-}
-
-data = {}
-st.header("Shipment Details Input (Matching Document Layout)")
-cols = st.columns(3)
-col_index = 0
-
-for label, key in fields_map.items():
-    # Set default text area height based on field importance
-    if key in ["Description of Goods"]:
-        height = 150
-    elif key in ["Shipper / Exporter", "Consignee", "Notify Party"]:
-        height = 80
-    else:
-        height = 40
-    
-    if key == "Exchange Rate (Cont.)":
-        continue
-    
-    if key in ["Revenue Tons", "Rate", "Per Prepaid", "Collect", "Document No.", "IMO Vessel No.", "B/L No.", "Number of Original B(s)/L"]:
-         data[key] = st.text_input(label, value="", key=key)
-         continue
-         
-    data[key] = cols[col_index % 3].text_area(label, value="", height=height, key=key)
-    col_index += 1
-
-
-# ----------------------------------------------------------------------
-# 3. PDF Generation Logic
-# ----------------------------------------------------------------------
-
-if st.button("Generate Bill of Lading PDF ⬇️"):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4,
-                            leftMargin=0.5*72, rightMargin=0.5*72, topMargin=0.5*72, bottomMargin=0.5*72)
+def create_bill_of_lading_elements(data, doc):
+    """Generates the platypus elements for a single Bill of Lading copy."""
     elements = []
+    
+    logo_path = "msal_logo.png"
 
     # --- Header (Logo and Title) ---
     header_data = []
@@ -148,8 +76,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
     elements.append(Spacer(1, 6))
 
     # --- Main B/L Data Table - Building Data (All rows must have 6 elements) ---
-    # The empty string placeholders ("") ensure every row has exactly 6 columns,
-    # which resolves the "list index out of range" error when applying SPAN styles.
+    
     table_data = []
 
     # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), Document No. (Col 5)
@@ -332,22 +259,22 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
     
     # Row 8, 9: Transport Details - (Col 0-1), (Col 2-3), (Col 4), (Col 5)
     span_styles.extend([
-        ('SPAN', (0, 8), (1, 8)), # Place of Receipt label (Col 0, 1)
-        ('SPAN', (2, 8), (3, 8)), # Ocean Vessel label (Col 2, 3)
-        ('SPAN', (0, 9), (1, 9)), # Place of Receipt value (Col 0, 1)
-        ('SPAN', (2, 9), (3, 9)), # Ocean Vessel value (Col 2, 3)
+        ('SPAN', (0, 8), (1, 8)), 
+        ('SPAN', (2, 8), (3, 8)), 
+        ('SPAN', (0, 9), (1, 9)), 
+        ('SPAN', (2, 9), (3, 9)), 
     ])
     
     # Row 12, 13: Goods Details - Marks/Container/Packages (1 col each), Description (Col 3-5)
     span_styles.extend([
-        ('SPAN', (3, 12), (5, 12)), # Description Label (Col 3, 4, 5)
-        ('SPAN', (3, 13), (5, 13)), # Description Value (Col 3, 4, 5)
+        ('SPAN', (3, 12), (5, 12)), 
+        ('SPAN', (3, 13), (5, 13)), 
     ])
     
     # Row 14, 15: Financials/Measurement - (Col 0-3 are 1 col each), Measurement (Col 4-5)
     span_styles.extend([
-        ('SPAN', (4, 14), (5, 14)), # Measurement Label (Col 4, 5)
-        ('SPAN', (4, 15), (5, 15)), # Measurement Value (Col 4, 5)
+        ('SPAN', (4, 14), (5, 14)), 
+        ('SPAN', (4, 15), (5, 15)), 
     ])
     
     # 3. Combine all styles into the final list
@@ -365,7 +292,7 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
     elements.append(main_table)
     elements.append(Spacer(1, 12))
 
-    # --- Footer (No QR Code) ---
+    # --- Footer ---
 
     footer_table = Table([
         [
@@ -387,18 +314,112 @@ if st.button("Generate Bill of Lading PDF ⬇️"):
     ]))
     elements.append(footer_table)
     
+    return elements
+
+
+# ----------------------------------------------------------------------
+# 3. Streamlit Interface and PDF Generation Logic
+# ----------------------------------------------------------------------
+
+st.set_page_config(layout="wide")
+st.title("MSAL Shipping - Bill of Lading Generator 🚢")
+
+# Define fields based on the document layout (same as before)
+fields_map = {
+    "(2) Shipper / Exporter": "Shipper / Exporter",
+    "(3) Consignee(complete name and address)": "Consignee",
+    "(4) Notify Party (complete name and address)": "Notify Party",
+    "(5) Document No.": "Document No.",
+    "(6) Export References": "Export References",
+    "(7) Forwarding Agent-References": "Forwarding Agent-References",
+    "(8) Point and Country of Origin (for the Merchant's reference only)": "Point & Country of Origin",
+    "(9) Also Notify Party (complete name and address)": "Also Notify Party",
+    "(10) Onward Inland Routing/Export Instructions": "Export Instructions",
+    "(12) Imo Vessele No.": "IMO Vessel No.",
+    "(13) Place of Receipt/Date": "Place of Receipt / Date",
+    "(14) Ocean Vessel/Voy. No.": "Ocean Vessel / Voyage No.",
+    "(15) Port of Loading": "Port of Loading",
+    "(16) Port of Discharge": "Port of Discharge",
+    "(17) Place of Delivery": "Place of Delivery",
+    "Marks & Nos.": "Marks & Nos.",
+    "(18) Container No. And Seal No.": "Container No. / Seal No.",
+    "(19) Quantity And Kind of Packages": "Quantity & Kind of Packages",
+    "(20) Description of Goods": "Description of Goods",
+    "Revenue Tons": "Revenue Tons",
+    "Rate": "Rate",
+    "Per Prepaid": "Per Prepaid",
+    "Collect": "Collect",
+    "(21) Measurement (M³) Gross Weight (KGS)": "Measurement / Gross Weight",
+    "(22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)": "Total Containers / Packages",
+    "(24) FREIGHT & CHARGES": "Freight & Charges",
+    "(25) B/L NO.": "B/L No.",
+    "(26) Service Type/Mode": "Service Type / Mode",
+    "(27) Number of Original B(s)/L": "Number of Original B(s)/L",
+    "(28) Place of B(s)/L Issue/Date": "Place of B(s)/L Issue / Date",
+    "(29) Prepaid at": "Prepaid at",
+    "(30) Collect at": "Collect at",
+    "(31) Exchange Rate": "Exchange Rate",
+    "(32) Exchange Rate (Cont.)": "Exchange Rate (Cont.)",
+    "(33) Laden on Board": "Laden on Board Date",
+}
+
+data = {}
+st.header("Shipment Details Input (Matching Document Layout)")
+cols = st.columns(3)
+col_index = 0
+
+for label, key in fields_map.items():
+    # Set default text area height based on field importance
+    if key in ["Description of Goods"]:
+        height = 150
+    elif key in ["Shipper / Exporter", "Consignee", "Notify Party"]:
+        height = 80
+    else:
+        height = 40
+    
+    if key == "Exchange Rate (Cont.)":
+        continue
+    
+    if key in ["Revenue Tons", "Rate", "Per Prepaid", "Collect", "Document No.", "IMO Vessel No.", "B/L No.", "Number of Original B(s)/L"]:
+         data[key] = st.text_input(label, value="", key=key)
+         continue
+         
+    data[key] = cols[col_index % 3].text_area(label, value="", height=height, key=key)
+    col_index += 1
+
+
+if st.button("Generate Bill of Lading PDF (3 Copies) ⬇️"):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=0.5*72, rightMargin=0.5*72, topMargin=0.5*72, bottomMargin=0.5*72)
+    
+    final_elements = []
+
+    # --- 1st Copy ---
+    final_elements.extend(create_bill_of_lading_elements(data, doc))
+    # Add page break to start the next copy on a new page
+    final_elements.append(PageBreak()) 
+
+    # --- 2nd Copy ---
+    final_elements.extend(create_bill_of_lading_elements(data, doc))
+    # Add page break to start the next copy on a new page
+    final_elements.append(PageBreak())
+
+    # --- 3rd Copy (No page break after the last one) ---
+    final_elements.extend(create_bill_of_lading_elements(data, doc))
+    
     # --- Build Document and Download ---
     
     try:
-        doc.build(elements)
+        doc.build(final_elements)
         buffer.seek(0)
     
         st.download_button(
-            label="Download Bill of Lading PDF ⬇️",
+            label="Download Bill of Lading PDF (3 Copies) ⬇️",
             data=buffer,
-            file_name=f"{data.get('B/L No.', 'BILL_OF_LADING').replace('/', '_')}.pdf",
+            file_name=f"{data.get('B/L No.', 'BILL_OF_LADING_3_COPIES').replace('/', '_')}.pdf",
             mime="application/pdf"
         )
+        st.success("تم إنشاء ملف PDF بنجاح بثلاث نسخ.")
     except Exception as e:
-        # Changed the error message to clarify the issue
-        st.error(f"An error occurred while building the PDF: {e}")
+        st.error(f"حدث خطأ أثناء بناء ملف PDF: {e}")

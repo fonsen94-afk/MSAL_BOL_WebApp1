@@ -8,17 +8,17 @@ import io
 import os 
 from PIL import Image as PilImage 
 
-# 🚨 تعريف الألوان المطابقة للتصميم الذي تم تقديمه (الأخضر الداكن والأخضر الفاتح)
+# 🚨 تعريف الألوان المطابقة للتصميم الأخضر
 DARK_GREEN = colors.Color(0/255, 128/255, 0/255) 
 LIGHT_GREEN_BG = colors.Color(230/255, 255/255, 230/255) 
 
-# مسار الشعار
+# مسار الشعار (تأكد من وجود ملف msal_logo.png في نفس المجلد)
 LOGO_PATH = "msal_logo.png" 
 
 # 1. دالة إنشاء محتوى PDF
 def create_pdf(data):
     """
-    تنشئ محتوى سند الشحن كملف PDF في الذاكرة، بمطابقة تصميم الصورة.
+    تنشئ محتوى سند الشحن كملف PDF في الذاكرة، بمطابقة تصميم الصورة باستخدام الألوان الخضراء.
     """
     buffer = io.BytesIO()
     
@@ -73,7 +73,7 @@ def create_pdf(data):
 
     title_cell = Paragraph("BILL OF LADING", main_title_style)
 
-    # 🚨 تصحيح Table 1: تمرير العرض كوسيط موضعي ثالث
+    # 🚨 تم تمرير عرض الأعمدة كوسيط موضعي (تجنب خطأ col_widths)
     header_table = Table(
         [[logo_cell, title_cell]], 
         [1.5 * inch, 6.5 * inch] 
@@ -127,17 +127,16 @@ def create_pdf(data):
     ]
     
     upper_col_widths = [4.0 * inch, 4.0 * inch]
-    # 🚨 تصحيح Table 2: تمرير العرض كوسيط موضعي ثالث
     t_upper = Table(info_data_upper, upper_col_widths, repeatRows=0)
     
     t_upper.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
+        ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN), # حدود خضراء داكنة
         ('ROWHEIGHTS', (0, 0), (1, -1), 0.7 * inch),
         ('ROWHEIGHTS', (2, 2), (2, 2), 0.8 * inch),
         ('ROWHEIGHTS', (3, 3), (3, 3), 0.3 * inch), 
         ('ROWHEIGHTS', (4, 4), (-1, -1), 0.7 * inch),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BACKGROUND', (0, 3), (-1, 3), LIGHT_GREEN_BG),
+        ('BACKGROUND', (0, 3), (-1, 3), LIGHT_GREEN_BG), # خلفية خضراء فاتحة
     ]))
 
     elements.append(t_upper)
@@ -174,15 +173,14 @@ def create_pdf(data):
     table_goods_full = goods_header + goods_data
     
     goods_col_widths = [2.0 * inch, 1.5 * inch, 3.5 * inch, 1.0 * inch] 
-    # 🚨 تصحيح Table 3: تمرير العرض كوسيط موضعي ثالث
     t_goods = Table(table_goods_full, goods_col_widths, repeatRows=2)
     
     t_goods.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
-        ('SPAN', (2, 0), (3, 0)),
+        ('SPAN', (2, 0), (3, 0)), # دمج خلية "Particulars furnished by the Merchant"
         
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BACKGROUND', (0, 0), (-1, 1), LIGHT_GREEN_BG),
+        ('BACKGROUND', (0, 0), (-1, 1), LIGHT_GREEN_BG), # خلفية خضراء فاتحة
         ('ROWHEIGHTS', (0, 0), (0, 0), 0.4 * inch),
         ('ROWHEIGHTS', (1, 1), (1, 1), 0.4 * inch),
         ('ROWHEIGHTS', (2, 2), (-1, -1), 2.0 * inch) 
@@ -211,7 +209,6 @@ def create_pdf(data):
     ]
 
     footer_col_widths = [3.0 * inch, 1.25 * inch, 1.25 * inch, 1.25 * inch, 1.25 * inch]
-    # 🚨 تصحيح Table 4: تمرير العرض كوسيط موضعي ثالث
     t_footer = Table(footer_data, footer_col_widths, repeatRows=0)
     
     t_footer.setStyle(TableStyle([
@@ -249,7 +246,6 @@ def create_pdf(data):
     ]
 
     final_col_widths = [2.0 * inch, 2.0 * inch, 2.0 * inch, 2.0 * inch]
-    # 🚨 تصحيح Table 5: تمرير العرض كوسيط موضعي ثالث
     t_final = Table(final_data, final_col_widths, repeatRows=0)
 
     t_final.setStyle(TableStyle([
@@ -268,8 +264,6 @@ def create_pdf(data):
     return buffer
 
 # 2. دالة واجهة Streamlit (main)
-# ... [باقي دالة main]
-# (لم يتم تضمينها بالكامل هنا لتجنب التكرار، ولكن تأكد من استخدام الكود الكامل الذي زودتك به سابقًا)
 def main():
     st.set_page_config(layout="wide", page_title="أداة سند الشحن (مطابق)")
     
@@ -281,7 +275,6 @@ def main():
     st.markdown("---")
     
     # --- جمع البيانات الافتراضية ---
-    # يتم جمع البيانات هنا
     data = {}
     
     with st.expander("بيانات الشاحن والمستلم والموانئ"):
@@ -348,4 +341,5 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
+        # رسالة خطأ عامة في حال ظهور مشاكل غير متوقعة
         st.error(f"حدث خطأ غير متوقع: {e}")

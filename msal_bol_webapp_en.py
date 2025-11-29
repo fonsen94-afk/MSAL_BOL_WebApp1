@@ -1,3 +1,32 @@
+أهلاً بك مرة أخرى.
+
+رسالة الخطأ $`SyntaxError: did you forget parentheses around the comprehension target?`$ في السطر 338 تظهر لأنك لا تزال تحاول دمج قائمة الأنماط العادية (مثل $`('SPAN', (0, 0), (2, 0))`$) مع فهم القائمة (List Comprehension) في نفس القائمة $`main_style`$، أو ضمن قائمة $`span_styles`$.
+
+في لغة **Python**، بمجرد أن تبدأ تعريف قائمة بـ $`[`$، يجب أن تكون جميع العناصر داخلها إما قيمًا ثابتة أو مولّدة بالكامل (مثل فهم القائمة)، ولا يمكنك استخدام حلقة $`for`$ عادية داخل القائمة بهذا الشكل.
+
+في المحاولة الأخيرة، كانت المشكلة هنا (السطر 338 وما حوله):
+
+```python
+    # --- 3. إضافة أنماط الدمج (SPAN) ---
+    span_styles = [
+        # Shipper/Consignee (Row 0, 1) - Col 0-2 & Col 3-4 (50%) & Col 5 (16.6%)
+        ('SPAN', (0, 0), (2, 0)), ('SPAN', (3, 0), (4, 0)),
+        # ... المزيد من الأنماط الثابتة ...
+
+        # تم تطبيق الدمج على كل زوج من صفوف (Label, Value)
+        for i in [2, 4, 6, 10, 18, 20, 22, 24]: # <--- هذا هو الخطأ التركيبي
+             ('SPAN', (0, i), (2, i)), ('SPAN', (3, i), (5, i)),
+             # ...
+    ]
+```
+
+## ✅ الكود الكامل والمصحح (مع تصحيح الأخطاء التركيبية)
+
+لحل المشكلة، قمت بتنظيف منطقة الأنماط تمامًا، واستخدمت أسلوب $`list.extend()`$ لدمج جميع أنماط $`SPAN`$ المولّدة ديناميكيًا مع القائمة الرئيسية بطريقة صحيحة.
+
+الآن الكود صحيح تركيبيًا (Syntax-wise) ويعكس التخطيط الذي طلبته:
+
+```python
 import streamlit as st
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
@@ -15,12 +44,10 @@ import os
 
 # تأكد من توفر ملفات الخطوط هذه في نفس المجلد
 try:
-    # يجب أن تكون أسماء الملفات مطابقة لما لديك:
     pdfmetrics.registerFont(TTFont('ArabicFont', 'Arial.ttf'))
     pdfmetrics.registerFont(TTFont('ArabicFont-Bold', 'Arial_Bold.ttf'))
     arabic_font = "ArabicFont"
 except:
-    # استخدام خط احتياطي إذا لم يتم العثور على الخطوط
     st.warning("⚠️ تنبيه: لم يتم العثور على ملفات 'Arial.ttf' أو 'Arial_Bold.ttf'. قد لا يتم عرض النص العربي بشكل صحيح في ملف PDF.")
     arabic_font = "Helvetica" 
 
@@ -110,6 +137,7 @@ for label, key in fields_map.items():
     if key == "Exchange Rate (Cont.)":
         continue
     
+    # استخدام st.text_input للحقول المالية الصغيرة
     if key in ["Revenue Tons", "Rate", "Per Prepaid", "Collect"]:
          data[key] = st.text_input(label, value="", key=key)
          continue
@@ -158,11 +186,11 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
     elements.append(Spacer(1, 6))
 
     # ----------------------------------------------------
-    # Main B/L Data Table
+    # Main B/L Data Table - بناء البيانات
     # ----------------------------------------------------
     table_data = []
 
-    # Row 1-2: Shipper (50%) / Consignee (50%)
+    # Row 1-2: Shipper (50%) / Consignee (50%) / Document No. (16.6%)
     table_data.append([
         create_cell_content("(2) Shipper / Exporter", ""),
         create_cell_content("(3) Consignee(complete name and address)", ""),
@@ -242,7 +270,7 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         create_cell_content("", data["Description of Goods"], is_label=False)
     ])
 
-    # Row 15-16: Freight Financials (4/6) / Measurement (2/6)
+    # Row 15-16: Financials (4/6) / Measurement (2/6)
     table_data.append([
         create_cell_content("Revenue Tons", ""),
         create_cell_content("Rate", ""),
@@ -310,18 +338,65 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
     ])
     
     # ----------------------------------------------------
-    # Table Styling and Column Spans (تم تصحيح الأخطاء التركيبية)
+    # Table Styling and Column Spans (الآن يتم توليد الأنماط بشكل صحيح)
     # ----------------------------------------------------
     
     col_widths = [doc.width * 0.166] * 6
     main_table = Table(table_data, colWidths=col_widths)
     
-    # --- 1. توليد أنماط الخلفية بشكل منفصل (لتجنب SyntaxError) ---
+    # 1. توليد أنماط الخلفية بشكل منفصل
     background_styles = []
     for i in range(len(table_data)):
         if i % 2 == 0:
             background_styles.append(('BACKGROUND', (0, i), (-1, i), light_gray_color))
     
+    # 2. توليد أنماط الدمج (SPAN) بشكل منفصل
+    span_styles = []
+    
+    # Shipper/Consignee (Row 0, 1) - Col 0-2 & Col 3-4 (50%) & Col 5 (16.6%)
+    span_styles.extend([
+        ('SPAN', (0, 0), (2, 0)), ('SPAN', (3, 0), (4, 0)),
+        ('SPAN', (0, 1), (2, 1)), ('SPAN', (3, 1), (4, 1)),
+    ])
+    
+    # Notify Party / Export References / Forwarding Agent / Origin / ... (50%/50%)
+    for i in [2, 4, 6, 10, 18, 20, 22, 24]:
+        # الحقل الأول يأخذ 3 أعمدة (50%)، والثاني يأخذ 3 أعمدة (50%)
+        span_styles.extend([
+            ('SPAN', (0, i), (2, i)), ('SPAN', (3, i), (5, i)),
+            ('SPAN', (0, i+1), (2, i+1)), ('SPAN', (3, i+1), (5, i+1)),
+        ])
+
+    # أنماط الدمج الفردية التي لا تتبع نمط 50%/50%
+    
+    # Instructions (تأخذ 50% من الـ 50% الأخيرتين)
+    span_styles.extend([
+        ('SPAN', (3, 6), (5, 6)), ('SPAN', (3, 7), (5, 7)),
+    ])
+    
+    # Port of Discharge (4 أعمدة متساوية)
+    span_styles.extend([
+        ('SPAN', (4, 8), (5, 8)), # دمج Col 4 و 5 لـ Port of Discharge
+        ('SPAN', (4, 9), (5, 9)),
+    ])
+    
+    # Description (Col 3-5)
+    span_styles.extend([
+        ('SPAN', (3, 12), (5, 12)), ('SPAN', (3, 13), (5, 13)),
+    ])
+    
+    # Measurement (Col 4-5)
+    span_styles.extend([
+        ('SPAN', (4, 14), (5, 14)), ('SPAN', (4, 15), (5, 15)),
+    ])
+    
+    # Total Packages / Freight & Charges (50%/50%)
+    span_styles.extend([
+        ('SPAN', (0, 16), (2, 16)), ('SPAN', (3, 16), (5, 16)),
+        ('SPAN', (0, 17), (2, 17)), ('SPAN', (3, 17), (5, 17)),
+    ])
+    
+    # 3. دمج جميع الأنماط
     main_style = [
         ('GRID', (0, 0), (-1, -1), 0.5, green_color),
         ('BOX', (0, 0), (-1, -1), 1, black_color),
@@ -329,71 +404,9 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]
     
-    # --- 2. دمج أنماط الخلفية ---
     main_style.extend(background_styles)
-    
-    # --- 3. إضافة أنماط الدمج (SPAN) ---
-    span_styles = [
-        # Shipper/Consignee (Row 0, 1) - Col 0-2 & Col 3-4 (50%) & Col 5 (16.6%)
-        ('SPAN', (0, 0), (2, 0)), ('SPAN', (3, 0), (4, 0)),
-        ('SPAN', (0, 1), (2, 1)), ('SPAN', (3, 1), (4, 1)),
+    main_style.extend(span_styles)
 
-        # Notify Party / Export References / Forwarding Agent / Origin / ... (50%/50%)
-        # تم تطبيق الدمج على كل زوج من صفوف (Label, Value)
-        for i in [2, 4, 6, 10, 18, 20, 22, 24]:
-             ('SPAN', (0, i), (2, i)), ('SPAN', (3, i), (5, i)),
-             ('SPAN', (0, i+1), (2, i+1)), ('SPAN', (3, i+1), (5, i+1)),
-
-        # Instructions (تأخذ مساحة أكبر)
-        ('SPAN', (3, 6), (5, 6)),
-        ('SPAN', (3, 7), (5, 7)),
-        
-        # Port of Discharge / IMO No. (50%/50%)
-        ('SPAN', (0, 10), (2, 10)), ('SPAN', (3, 10), (5, 10)),
-        ('SPAN', (0, 11), (2, 11)), ('SPAN', (3, 11), (5, 11)),
-
-        # Transport Details (Row 8, 9) - 4 أعمدة متساوية
-        ('SPAN', (4, 8), (5, 8)), # دمج Col 4 و 5 لـ Port of Discharge Label
-        ('SPAN', (4, 9), (5, 9)), # دمج Col 4 و 5 لـ Port of Discharge Value
-        
-        # Marks & Nos. / Container No. / Packages / Description (Row 12, 13)
-        # Description (Col 3-5)
-        ('SPAN', (3, 12), (5, 12)),
-        ('SPAN', (3, 13), (5, 13)),
-        
-        # Financials / Measurement (Row 14, 15)
-        # Measurement (Col 4-5)
-        ('SPAN', (4, 14), (5, 14)),
-        ('SPAN', (4, 15), (5, 15)),
-        
-        # Total Packages / Freight & Charges (Row 16, 17) - 50%/50%
-        ('SPAN', (0, 16), (2, 16)), ('SPAN', (3, 16), (5, 16)),
-        ('SPAN', (0, 17), (2, 17)), ('SPAN', (3, 17), (5, 17)),
-    ]
-    
-    # دمج أنماط الدمج (SPAN) ضمن حلقة SPAN
-    # استخدام حلقة فور (for loop) لدمج أنماط SPAN بطريقة صحيحة:
-    for i in [2, 4, 6, 10, 18, 20, 22, 24]:
-        main_style.append(('SPAN', (0, i), (2, i)))
-        main_style.append(('SPAN', (3, i), (5, i)))
-        main_style.append(('SPAN', (0, i+1), (2, i+1)))
-        main_style.append(('SPAN', (3, i+1), (5, i+1)))
-
-    # إضافة أنماط SPAN الفردية
-    main_style.append(('SPAN', (3, 6), (5, 6)))
-    main_style.append(('SPAN', (3, 7), (5, 7)))
-    main_style.append(('SPAN', (4, 8), (5, 8)))
-    main_style.append(('SPAN', (4, 9), (5, 9)))
-    main_style.append(('SPAN', (3, 12), (5, 12)))
-    main_style.append(('SPAN', (3, 13), (5, 13)))
-    main_style.append(('SPAN', (4, 14), (5, 14)))
-    main_style.append(('SPAN', (4, 15), (5, 15)))
-    main_style.append(('SPAN', (0, 0), (2, 0)))
-    main_style.append(('SPAN', (3, 0), (4, 0)))
-    main_style.append(('SPAN', (0, 1), (2, 1)))
-    main_style.append(('SPAN', (3, 1), (4, 1)))
-
-    
     main_table.setStyle(TableStyle(main_style))
     elements.append(main_table)
     elements.append(Spacer(1, 12))
@@ -450,4 +463,5 @@ if st.button("توليد ملف PDF مع رمز QR 📄"):
             mime="application/pdf"
         )
     except Exception as e:
-        st.error(f"حدث خطأ أثناء توليد ملف PDF. تأكد من توفر ملفات الخطوط العربية (Arial.ttf) أو قم بإزالتها: {e}")
+        st.error(f"حدث خطأ أثناء توليد ملف PDF. تأكد من توفر ملفات الخطوط العربية (Arial.ttf): {e}")
+```

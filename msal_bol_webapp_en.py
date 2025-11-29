@@ -343,7 +343,7 @@ def create_bill_of_lading_elements(data, doc):
 # ----------------------------------------------------------------------
 
 st.set_page_config(layout="wide")
-st.title("MSAL Shipping - Bill of Lading Generator 🚢")
+st.title("MSAL Shipping - Bill of Lading ")
 
 # Define fields based on the document layout 
 fields_map = {

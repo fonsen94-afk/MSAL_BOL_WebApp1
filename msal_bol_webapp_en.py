@@ -14,6 +14,7 @@ import os
 base_font = "Helvetica"
 styles = getSampleStyleSheet()
 
+# Define Colors
 green_color = colors.HexColor("#008000")
 black_color = colors.black
 light_gray_color = colors.HexColor("#EEEEEE")
@@ -42,12 +43,13 @@ def create_cell_content(label, value, is_label=True, font_style='MyFieldValueBla
 # ----------------------------------------------------------------------
 
 def create_bill_of_lading_elements(data, doc):
-    """Generates the platypus elements for a single Bill of Lading copy."""
+    """Generates the platypus elements for a single Bill of Lading copy, matching the requested design."""
     elements = []
     
     logo_path = "msal_logo.png"
 
     # --- Header (Logo and Title) ---
+    # Using a table for layout alignment but removing all borders as requested.
     header_data = []
 
     if logo_path and os.path.exists(logo_path):
@@ -68,15 +70,14 @@ def create_bill_of_lading_elements(data, doc):
     header_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, green_color),
+        # REMOVED GRID/BOX here to comply with "لا اريد ان يكون في داخل جدول" (visually)
         ('SPAN', (1, 0), (2, 0)),
     ]))
     elements.append(header_table)
     elements.append(Spacer(1, 6))
 
     # --- Main B/L Data Table - Building Data (All rows must have 6 elements) ---
-    # The empty string placeholders ("") ensure every row has exactly 6 columns,
-    # which preserves the design integrity when SPAN styles are applied.
+    
     table_data = []
 
     # Row 0, 1: Shipper (Col 0-2), Consignee (Col 3-4), Document No. (Col 5)
@@ -279,8 +280,9 @@ def create_bill_of_lading_elements(data, doc):
     
     # 3. Combine all styles into the final list
     main_style = [
+        # Keep internal GRID lines with green color
         ('GRID', (0, 0), (-1, -1), 0.5, green_color),
-        ('BOX', (0, 0), (-1, -1), 1, black_color),
+        # REMOVED BOX style to comply with "لا اريد ان يكون في اطارة"
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]
@@ -293,6 +295,7 @@ def create_bill_of_lading_elements(data, doc):
     elements.append(Spacer(1, 12))
 
     # --- Footer ---
+    # Removed BOX from the footer table as well
 
     footer_table = Table([
         [
@@ -397,12 +400,10 @@ if st.button("Generate Bill of Lading PDF (3 Copies) ⬇️"):
 
     # --- 1st Copy ---
     final_elements.extend(create_bill_of_lading_elements(data, doc))
-    # Add page break to start the next copy on a new page
     final_elements.append(PageBreak()) 
 
     # --- 2nd Copy ---
     final_elements.extend(create_bill_of_lading_elements(data, doc))
-    # Add page break to start the next copy on a new page
     final_elements.append(PageBreak())
 
     # --- 3rd Copy (No page break after the last one) ---
@@ -420,6 +421,6 @@ if st.button("Generate Bill of Lading PDF (3 Copies) ⬇️"):
             file_name=f"{data.get('B/L No.', 'BILL_OF_LADING_3_COPIES').replace('/', '_')}.pdf",
             mime="application/pdf"
         )
-        st.success("تم إنشاء ملف PDF بنجاح بثلاث نسخ.")
+        st.success("تم إنشاء ملف PDF بثلاث نسخ مطابقة للتصميم المطلوب وبدون إطار خارجي.")
     except Exception as e:
         st.error(f"حدث خطأ أثناء بناء ملف PDF: {e}")

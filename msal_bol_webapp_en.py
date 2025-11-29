@@ -1,5 +1,6 @@
 import streamlit as st
 from reportlab.lib.pagesizes import A4
+# تأكد من استيراد Image هنا
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -7,7 +8,7 @@ from reportlab.lib.units import inch
 import io
 import os 
 
-# 🚨 تم تحديث مسار الشعار هنا
+# 🚨 مسار الشعار يجب أن يكون صحيحاً
 LOGO_PATH = "msal_logo.png" 
 
 # 1. دالة إنشاء محتوى PDF
@@ -47,32 +48,32 @@ def create_pdf(data):
     
     # --- إضافة الشعار والعنوان ---
     
-    header_data = []
-
-    # 1. إضافة الشعار (الصورة)
+    logo_cell = "" # القيمة الافتراضية للخلية الأولى
+    
+    # 1. إعداد خلية الشعار
     if os.path.exists(LOGO_PATH):
         try:
-            # ReportLab Image
-            logo = Image(LOGO_PATH, width=1.0 * inch, height=0.5 * inch)
-            header_data.append(logo)
+            # ReportLab Image - محاولة إنشاء الكائن
+            # نستخدم str() للتأكد من أن مسار الملف سلسلة نصية
+            logo_cell = Image(str(LOGO_PATH), width=1.0 * inch, height=0.5 * inch)
         except Exception:
-             # في حالة فشل ReportLab في قراءة نوع الملف، نضع مكانه نص
-            header_data.append(Paragraph("<b>[LOGO PLACEHOLDER]</b>", cell_style))
+             # في حالة حدوث خطأ في القراءة، نضع مكانه فقرة نصية صالحة
+            logo_cell = Paragraph("<b>[LOGO ERROR]</b>", cell_style)
     else:
-        # إذا لم يتم العثور على الملف
-        header_data.append(Paragraph("<b>MCL SHIPPING</b>", styles['Normal']))
+        # إذا لم يتم العثور على الملف، نضع فقرة نصية صالحة
+        logo_cell = Paragraph("<b>MCL SHIPPING</b>", styles['Normal'])
     
-    # 2. إضافة عنوان المستند في العمود الثاني
-    header_data.append(Paragraph("BILL OF LADING", main_title_style))
+    # 2. إعداد خلية العنوان
+    title_cell = Paragraph("BILL OF LADING", main_title_style)
 
-    # دمج الشعار والعنوان في جدول برأس الصفحة
+    # دمج الشعار والعنوان في جدول برأس الصفحة (تم تصحيح TypeError هنا)
     header_table = Table(
-        [[header_data[0], header_data[1]]],
+        [[logo_cell, title_cell]], 
         col_widths=[1.5 * inch, 6.5 * inch]
     )
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (1, 0), (1, 0), 'CENTER'), # محاذاة العنوان للمنتصف
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
         ('LEFTPADDING', (1, 0), (1, 0), 0)
     ]))
     
@@ -81,7 +82,7 @@ def create_pdf(data):
     
     # --- البيانات الأساسية في جدول واحد ---
     
-    # تم استخدام str() لضمان سلاسل نصية وتجنب TypeError
+    # تم استخدام str() و .get() لضمان سلاسل نصية وتجنب TypeError
     table_data = [
         [
             Paragraph("<b>(2) Shipper / Exporter:</b><br/>" + str(data.get('shipper', 'N/A')), cell_style),

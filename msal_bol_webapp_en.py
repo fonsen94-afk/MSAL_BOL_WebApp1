@@ -12,19 +12,20 @@ from PIL import Image as PilImage
 DARK_GREEN = colors.Color(0/255, 128/255, 0/255) 
 DARK_GREEN_HEX = '#008000' 
 
-# مسار الشعار
+# مسار الشعار (تأكد من وجود هذا الملف في نفس المجلد)
 LOGO_PATH = "msal_logo.png" 
 
 # 1. دالة إنشاء محتوى PDF
 def create_pdf(data):
     """
-    تنشئ محتوى سند الشحن كملف PDF، مع التركيز الدقيق على تقسيم الحقول في الصورة.
+    تنشئ محتوى سند الشحن كملف PDF، مع التركيز الدقيق على تقسيم الحقول ودعم الصفوف الديناميكية للبضائع.
     """
     buffer = io.BytesIO()
     
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
+        # الهوامش الخارجية للصفحة (لا يوجد كينار خارجي)
         leftMargin=0.5 * inch,
         rightMargin=0.5 * inch,
         topMargin=0.5 * inch,
@@ -42,10 +43,12 @@ def create_pdf(data):
         textColor=colors.black 
     )
     
+    # نمط النص الفرعي (البيانات)
     cell_style = styles['Normal']
     cell_style.fontSize = 8
     cell_style.leading = 10 
     
+    # نمط النص الرئيسي للحقول (الأرقام والعناوين) - أخضر داكن وخط عريض
     field_label_style = ParagraphStyle(
         'FieldLabel',
         parent=cell_style,
@@ -88,7 +91,7 @@ def create_pdf(data):
     elements.append(Spacer(1, 0.1 * inch))
     
     # دالة مساعدة لتنسيق الخلايا ذات الرقم والعنوان الأخضر (Primary/Secondary text)
-    def format_numbered_cell(number_text, label_text, data_value, height=0.7 * inch):
+    def format_numbered_cell(number_text, label_text, data_value):
         label_paragraph = Paragraph(f'<font color="{DARK_GREEN_HEX}"><b>{number_text}</b> {label_text}</font>', field_label_style)
         data_paragraph = Paragraph(str(data_value), cell_style)
         
@@ -126,16 +129,14 @@ def create_pdf(data):
             format_numbered_cell("7)", "Forwarding Agent / References:", data.get('fwd_agent', 'N/A')),
         ],
         [
-            format_numbered_cell("4)", "Notify Party (complete name and address):", data.get('notify_party', 'N/A'), height=0.8 * inch), 
-            format_numbered_cell("8)", "Point and Country of Origin (for the Merchant's reference only):", data.get('origin', 'N/A'), height=0.8 * inch),
+            format_numbered_cell("4)", "Notify Party (complete name and address):", data.get('notify_party', 'N/A')), 
+            format_numbered_cell("8)", "Point and Country of Origin (for the Merchant's reference only):", data.get('origin', 'N/A')),
         ],
         [
-             # رؤوس الصفوف الداخلية (12) و (9)
              format_main_header_cell("(12) Imo Vessel No."), 
              format_main_header_cell("(9) Also Notify Party (complete name and address)")
         ],
         [
-            # نستخدم (13) هنا كما هي في الصورة، ونعتبر (12) عنوان للصف أعلاه
             format_numbered_cell("13)", "Place of Receipt/Date:", data.get('imo_place', 'N/A')), 
             format_numbered_cell("9)", "Also Notify Party:", data.get('also_notify_party', 'N/A')),
         ],
@@ -155,7 +156,7 @@ def create_pdf(data):
     t_upper.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN), 
         ('ROWHEIGHTS', (0, 0), (2, 2), 0.7 * inch), 
-        ('ROWHEIGHTS', (3, 3), (3, 3), 0.25 * inch), # ارتفاع صغير لرؤوس (12) و (9)
+        ('ROWHEIGHTS', (3, 3), (3, 3), 0.25 * inch), 
         ('ROWHEIGHTS', (4, 4), (-1, -1), 0.7 * inch), 
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
@@ -168,7 +169,6 @@ def create_pdf(data):
     elements.append(Spacer(1, 0.1 * inch))
 
     # --- جدول البضائع (الجزء الأوسط) ---
-    # يجب أن تكون 4 أعمدة بالضبط مع SPAN على الصف الأول
     
     goods_col_widths = [2.0 * inch, 1.5 * inch, 3.5 * inch, 1.0 * inch] 
     
@@ -176,11 +176,10 @@ def create_pdf(data):
         [
             format_main_header_cell("(18) Container No. And Seal No. / Marks & Nos."),
             format_main_header_cell("(19) Quantity and Kind of Packages"),
-            format_main_header_cell("Particulars furnished by the Merchant"), # سيتم دمجها مع الخلية التالية
-            Paragraph("", cell_style) # Placeholder for spanning
+            format_main_header_cell("Particulars furnished by the Merchant"),
+            Paragraph("", cell_style) 
         ],
         [
-            # الصف الثاني: تقسيم واضح للأعمدة الأربعة الفرعية 
             Paragraph("CONTAINER NO./SEAL NO.", cell_style), 
             Paragraph("Marks & Nos.", cell_style),          
             Paragraph("(20) Description of Goods", cell_style), 
@@ -188,29 +187,44 @@ def create_pdf(data):
         ]
     ]
     
-    # صف البيانات
-    goods_data_row = [
-        Paragraph(str(data.get('container_no', 'N/A')), cell_style), 
-        Paragraph(str(data.get('quantity', 'N/A')), cell_style), 
-        Paragraph(str(data.get('description', 'N/A')), cell_style), 
-        Paragraph(str(data.get('weight', 'N/A')), cell_style)
-    ]
+    # إنشاء صفوف بيانات البضائع ديناميكيًا
+    goods_data_rows = []
+    num_rows = len(data.get('goods_list', []))
+    
+    # تحديد ارتفاع الصف الواحد ديناميكياً بناءً على عدد الصفوف للحفاظ على مساحة ثابتة
+    single_row_height = (2.5 * inch) / max(1, num_rows)
+    if single_row_height < 0.5 * inch:
+        single_row_height = 0.5 * inch 
 
-    t_goods = Table(goods_header + [goods_data_row], goods_col_widths, repeatRows=2) 
+    if data.get('goods_list'):
+        for item in data['goods_list']:
+            goods_data_rows.append([
+                Paragraph(item['container_no'], cell_style), 
+                Paragraph(item['quantity'], cell_style), 
+                Paragraph(item['description'], cell_style), 
+                Paragraph(item['weight_measurement'], cell_style) 
+            ])
+    
+    t_goods = Table(goods_header + goods_data_rows, goods_col_widths, repeatRows=2) 
 
-    t_goods.setStyle(TableStyle([
+    # تطبيق ارتفاع الصفوف الديناميكي
+    style_commands = [
         ('GRID', (0, 0), (-1, -1), 1, DARK_GREEN),
-        ('SPAN', (2, 0), (3, 0)), # دمج "Particulars furnished by the Merchant" عبر العمودين
-        
+        ('SPAN', (2, 0), (3, 0)), 
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ROWHEIGHTS', (0, 0), (0, 0), 0.3 * inch), # ارتفاع صف الرأس 1
-        ('ROWHEIGHTS', (1, 1), (1, 1), 0.5 * inch), # ارتفاع صف الرأس 2
-        ('ROWHEIGHTS', (2, 2), (-1, -1), 2.5 * inch), # ارتفاع صف البيانات
+        ('ROWHEIGHTS', (0, 0), (0, 0), 0.3 * inch), 
+        ('ROWHEIGHTS', (1, 1), (1, 1), 0.5 * inch), 
         ('LEFTPADDING', (0,0), (-1,-1), 2),
         ('RIGHTPADDING', (0,0), (-1,-1), 2),
         ('TOPPADDING', (0,0), (-1,-1), 2),
         ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-    ]))
+    ]
+
+    # تطبيق ارتفاع موحد على جميع صفوف البيانات (بدءاً من الصف 2)
+    for row_index in range(num_rows):
+        style_commands.append(('ROWHEIGHTS', (row_index + 2, row_index + 2), (row_index + 2, row_index + 2), single_row_height))
+
+    t_goods.setStyle(TableStyle(style_commands))
 
     elements.append(t_goods)
     elements.append(Spacer(1, 0.1 * inch))
@@ -296,10 +310,9 @@ def create_pdf(data):
 
 # 2. دالة واجهة Streamlit (main)
 def main():
-    # ... (واجهة Streamlit تبقى كما هي، حيث أن التغييرات كلها في توليد الـ PDF) ...
     st.set_page_config(layout="wide", page_title="أداة سند الشحن")
     
-    st.title("🚢 أداة إنشاء سند الشحن (مطابقة التصميم)")
+    st.title("🚢 أداة إنشاء سند الشحن (النسخة النهائية)")
     
     if os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH, width=100) 
@@ -328,20 +341,51 @@ def main():
             data['inland_export_inst'] = st.text_area("10) Onward Inland Routing/Export Instructions:", "Handle with care.", height=50)
 
 
-    with st.expander("📦 تفاصيل البضائع والرسوم"):
-        col3, col4 = st.columns([2, 1])
-        with col3:
-            data['container_no'] = st.text_area("18) Container No. And Seal No. / Marks & Nos.", "MSKU1234567 / 998877", height=50)
-            data['quantity'] = st.text_area("19) Quantity and Kind of Packages", "20 Pallets", height=50)
-            data['description'] = st.text_area("20) Description of Goods", "Assorted Consumer Electronics and Spare Parts", height=100)
-            data['total_packages'] = st.text_area("22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", "Twenty (20) Pallets", height=50)
-        with col4:
-            data['weight'] = st.text_input("21) Gross Weight (KGS):", "15,500")
-            data['rev_tons'] = st.text_input("Revenue Tons:", "10.00")
-            data['rate'] = st.text_input("Rate:", "150.00")
-            data['per_prepaid'] = st.text_input("Per Prepaid:", "1500.00")
-            data['collect'] = st.text_input("Collect:", "0.00")
-            data['freight_charges'] = st.text_input("24) FREIGHT & CHARGES:", "Prepaid")
+    with st.expander("📦 تفاصيل البضائع والرسوم (صفوف ديناميكية)"):
+        
+        # التحكم في عدد صفوف البضائع
+        num_goods_rows = st.number_input(
+            "عدد صفوف تفاصيل البضائع المطلوبة (حاويات/بضائع)", 
+            min_value=1, 
+            value=1, 
+            step=1,
+            key='num_goods_rows'
+        )
+        
+        data['goods_list'] = [] 
+        
+        # إنشاء حقول إدخال ديناميكية لكل صف
+        for i in range(int(num_goods_rows)):
+            st.subheader(f"بيانات الصف / الحاوية رقم {i+1}")
+            
+            # عمود (18) و (19)
+            col_18, col_19 = st.columns([1, 1])
+            cont_marks = col_18.text_area(f"18) Cont. No. / Marks (Row {i+1})", f"MSKU1234567 / 998877 ({i+1})", height=50, key=f'cont_{i}')
+            quantity = col_19.text_area(f"19) Quantity (Row {i+1})", f"20 Pallets ({i+1})", height=50, key=f'qty_{i}')
+
+            # عمود (20) و (21)
+            col_20, col_21 = st.columns([3, 1])
+            description = col_20.text_area(f"20) Description of Goods (Row {i+1})", "Assorted Consumer Electronics and Spare Parts", height=70, key=f'desc_{i}')
+            weight_measurement = col_21.text_input(f"21) Weight / Meas. (Row {i+1})", f"15,500 KGS / 10 M³ ({i+1})", key=f'wgt_{i}')
+
+            goods_entry = {
+                'container_no': cont_marks,
+                'quantity': quantity,
+                'description': description,
+                'weight_measurement': weight_measurement
+            }
+            data['goods_list'].append(goods_entry)
+            st.markdown("---") 
+
+
+        data['total_packages'] = st.text_area("22) TOTAL NUMBER OF CONTAINERS OR PACKAGES (IN WORDS)", "Twenty (20) Pallets", height=50)
+        
+        col4_f, col5_f, col6_f, col7_f, col8_f = st.columns(5)
+        data['rev_tons'] = col4_f.text_input("Revenue Tons:", "10.00")
+        data['rate'] = col5_f.text_input("Rate:", "150.00")
+        data['per_prepaid'] = col6_f.text_input("Per Prepaid:", "1500.00")
+        data['collect'] = col7_f.text_input("Collect:", "0.00")
+        data['freight_charges'] = col8_f.text_input("24) FREIGHT & CHARGES:", "Prepaid")
 
     with st.expander("✍️ تفاصيل التوثيق النهائي"):
         col5, col6, col7 = st.columns(3)
@@ -365,7 +409,7 @@ def main():
     st.download_button(
         label="⬇️ تحميل سند الشحن كملف PDF",
         data=pdf_buffer,
-        file_name="Bill_of_Lading_Final_Exact_Match.pdf",
+        file_name="Bill_of_Lading_Final_Template.pdf",
         mime="application/pdf",
         type="primary"
     )
